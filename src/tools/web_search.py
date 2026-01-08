@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Web Search Tool - Network search using Perplexity API or Baidu AI Search API
+Web Search Tool - Network search using Perplexity API, Baidu AI Search API, or Kagi Search API
 """
 
 from datetime import datetime
@@ -24,6 +24,7 @@ class SearchProvider(str, Enum):
 
     PERPLEXITY = "perplexity"
     BAIDU = "baidu"
+    KAGI = "kagi"
 
 
 class BaiduAISearch:
@@ -221,6 +222,165 @@ def _search_with_baidu(
     return result
 
 
+class KagiSearch:
+    """Kagi Search API client for privacy-focused web search"""
+
+    BASE_URL = "https://kagi.com/api/v0/search"
+
+    def __init__(self, api_key: str):
+        """
+        Initialize Kagi Search client
+
+        Args:
+            api_key: Kagi API Key (Bot token)
+        """
+        self.api_key = api_key
+        self.headers = {
+            "Authorization": f"Bot {api_key}",
+        }
+
+    def search(
+        self,
+        query: str,
+        limit: int | None = None,
+    ) -> dict:
+        """
+        Perform search using Kagi Search API
+
+        Args:
+            query: Search query
+            limit: Maximum number of results to return (optional)
+
+        Returns:
+            dict: API response containing search results
+        """
+        params = {"q": query}
+        if limit is not None:
+            params["limit"] = limit
+
+        response = requests.get(
+            self.BASE_URL,
+            headers=self.headers,
+            params=params,
+            timeout=60,
+        )
+
+        if response.status_code != 200:
+            error_data = response.json() if response.text else {}
+            raise Exception(
+                f"Kagi Search API error: {response.status_code} - "
+                f"{error_data.get('error', [{}])[0].get('msg', response.text)}"
+            )
+
+        return response.json()
+
+
+def _search_with_kagi(
+    query: str,
+    limit: int | None = None,
+    verbose: bool = False,
+) -> dict:
+    """
+    Perform search using Kagi Search API
+
+    Args:
+        query: Search query
+        limit: Maximum number of results to return
+        verbose: Whether to print detailed information
+
+    Returns:
+        dict: Standardized search result
+    """
+    api_key = os.environ.get("KAGI_API_KEY")
+    if not api_key:
+        raise ValueError(
+            "KAGI_API_KEY environment variable is not set. "
+            "Please get your API key from https://kagi.com/settings?p=api"
+        )
+
+    client = KagiSearch(api_key=api_key)
+
+    response = client.search(query=query, limit=limit)
+
+    # Build standardized result
+    result = {
+        "timestamp": datetime.now().isoformat(),
+        "query": query,
+        "model": "kagi-search",
+        "provider": "kagi",
+        "answer": "",
+        "response": {
+            "content": "",
+            "role": "assistant",
+            "finish_reason": "complete",
+        },
+        "usage": {},
+        "citations": [],
+        "search_results": [],
+        "request_id": response.get("meta", {}).get("id", ""),
+    }
+
+    # Extract API balance info
+    meta = response.get("meta", {})
+    if meta:
+        result["usage"] = {
+            "api_balance": meta.get("api_balance", 0),
+            "response_time_ms": meta.get("ms", 0),
+        }
+
+    # Extract search results from data array
+    data = response.get("data", [])
+    related_searches = []
+
+    for item in data:
+        item_type = item.get("t", -1)
+
+        if item_type == 0:
+            # Type 0: Search result
+            search_result = {
+                "title": item.get("title", ""),
+                "url": item.get("url", ""),
+                "snippet": item.get("snippet", ""),
+                "date": item.get("published", ""),
+            }
+            result["search_results"].append(search_result)
+
+            # Also add to citations for compatibility
+            citation_data = {
+                "id": len(result["citations"]) + 1,
+                "reference": f"[{len(result['citations']) + 1}]",
+                "url": item.get("url", ""),
+                "title": item.get("title", ""),
+                "snippet": item.get("snippet", ""),
+                "date": item.get("published", ""),
+            }
+            if item.get("thumbnail"):
+                citation_data["thumbnail"] = item.get("thumbnail")
+            result["citations"].append(citation_data)
+
+        elif item_type == 1:
+            # Type 1: Related searches
+            related_searches.extend(item.get("list", []))
+
+    # Add related searches if available
+    if related_searches:
+        result["related_searches"] = related_searches
+
+    # Build answer from snippets (Kagi doesn't provide AI summary in search API)
+    if result["search_results"]:
+        snippets = [r["snippet"] for r in result["search_results"][:3] if r.get("snippet")]
+        result["answer"] = " ".join(snippets)
+        result["response"]["content"] = result["answer"]
+
+    if verbose:
+        print(f"[Kagi Search] Query: {query}")
+        print(f"[Kagi Search] Results count: {len(result['search_results'])}")
+        if meta.get("api_balance"):
+            print(f"[Kagi Search] API Balance: ${meta.get('api_balance', 0):.2f}")
+
+    return result
+
+
 def _search_with_perplexity(query: str, verbose: bool = False) -> dict:
     """
     Perform search using Perplexity API
@@ -340,6 +500,8 @@ def web_search(
     baidu_model: str = "ernie-4.5-turbo-32k",
     baidu_enable_deep_search: bool = False,
     baidu_search_recency_filter: str = "week",
+    # Kagi-specific options
+    kagi_limit: int | None = None,
 ) -> dict:
     """
     Perform network search using specified search provider and return results
@@ -351,6 +513,7 @@ def web_search(
         baidu_model: Model to use for Baidu AI Search (default: ernie-4.5-turbo-32k)
         baidu_enable_deep_search: Enable deep search for Baidu (more comprehensive results)
         baidu_search_recency_filter: Filter by recency for Baidu (week, month, semiyear, year)
+        kagi_limit: Maximum number of results for Kagi search (optional)
 
     Returns:
         dict: Dictionary containing search results
@@ -380,9 +543,15 @@ def web_search(
             )
         elif provider == "perplexity":
             result = _search_with_perplexity(query=query, verbose=verbose)
+        elif provider == "kagi":
+            result = _search_with_kagi(
+                query=query,
+                limit=kagi_limit,
+                verbose=verbose,
+            )
         else:
             raise ValueError(
-                f"Unsupported search provider: {provider}. Use 'perplexity' or 'baidu'."
+                f"Unsupported search provider: {provider}. Use 'perplexity', 'baidu', or 'kagi'."
             )
 
         # If output directory provided, save results

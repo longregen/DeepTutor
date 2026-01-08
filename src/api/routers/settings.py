@@ -128,8 +128,29 @@ ENV_VAR_DEFINITIONS = {
         "sensitive": False,
     },
     # Web Search Configuration
+    "SEARCH_PROVIDER": {
+        "description": "Web search provider (perplexity, baidu, or kagi)",
+        "category": "search",
+        "required": False,
+        "default": "perplexity",
+        "sensitive": False,
+    },
     "PERPLEXITY_API_KEY": {
         "description": "Perplexity API key for web search functionality",
+        "category": "search",
+        "required": False,
+        "default": "",
+        "sensitive": True,
+    },
+    "BAIDU_API_KEY": {
+        "description": "Baidu AI Search API key (get from https://console.bce.baidu.com/ai_apaas/resource)",
+        "category": "search",
+        "required": False,
+        "default": "",
+        "sensitive": True,
+    },
+    "KAGI_API_KEY": {
+        "description": "Kagi Search API key for privacy-focused web search (get from https://kagi.com/settings?p=api)",
         "category": "search",
         "required": False,
         "default": "",

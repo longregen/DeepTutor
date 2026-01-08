@@ -328,23 +328,9 @@ export default function SettingsPage() {
     }, 500),
   ).current;
 
-  // RAG providers state
-  const [ragProviders, setRagProviders] = useState<
-    Array<{
-      id: string;
-      name: string;
-      description: string;
-      supported_modes: string[];
-    }>
-  >([]);
-  const [currentRagProvider, setCurrentRagProvider] =
-    useState<string>("raganything");
-  const [loadingRagProviders, setLoadingRagProviders] = useState(false);
-
   useEffect(() => {
     fetchSettings();
     fetchEnvConfig();
-    fetchRagProviders();
     if (activeTab === "llm_providers") {
       fetchProviders();
     }
@@ -362,22 +348,6 @@ export default function SettingsPage() {
       console.error("Failed to fetch providers:", err);
     } finally {
       setLoadingProviders(false);
-    }
-  };
-
-  const fetchRagProviders = async () => {
-    setLoadingRagProviders(true);
-    try {
-      const res = await fetch(apiUrl("/api/v1/settings/rag/providers"));
-      if (res.ok) {
-        const data = await res.json();
-        setRagProviders(data.providers || []);
-        setCurrentRagProvider(data.current || "lightrag");
-      }
-    } catch (err) {
-      console.error("Failed to fetch RAG providers:", err);
-    } finally {
-      setLoadingRagProviders(false);
     }
   };
 
@@ -760,7 +730,7 @@ export default function SettingsPage() {
           .map(([key, value]) => ({ key, value }));
 
         if (envUpdates.length > 0) {
-          const envRes = await fetch(apiUrl("/api/v1/settings/env"), {
+          const envRes = await fetch(apiUrl("/api/v1/settings/env/"), {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ variables: envUpdates }),
@@ -856,7 +826,7 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center">
+      <div className="h-[calc(100vh-4rem)] flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-blue-600 dark:text-blue-400" />
       </div>
     );
@@ -870,7 +840,7 @@ export default function SettingsPage() {
     );
 
   return (
-    <div className="h-screen overflow-y-auto animate-fade-in">
+    <div className="h-[calc(100vh-4rem)] overflow-y-auto animate-fade-in">
       {/* Sticky Save Button at Top */}
       <div className="sticky top-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-md">
         <div className="max-w-4xl mx-auto p-6 flex items-center justify-between">
@@ -983,82 +953,80 @@ export default function SettingsPage() {
 
         {/* General Settings Tab */}
         {activeTab === "general" && (
-          <div className="space-y-4">
-            {/* Row 1: Interface + System Language + Active Model */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {/* Interface Settings */}
-              <section className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-                <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex items-center gap-2">
-                  <Globe className="w-4 h-4 text-blue-500 dark:text-blue-400" />
-                  <h2 className="font-semibold text-sm text-slate-900 dark:text-slate-100">
-                    {t("Interface Preferences")}
-                  </h2>
-                </div>
-                <div className="p-4 space-y-4">
-                  {/* Theme Mode */}
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
-                      {t("Theme")}
-                    </label>
-                    <div className="flex bg-slate-100 dark:bg-slate-700 p-0.5 rounded-lg">
-                      {["light", "dark"].map((themeOption) => (
-                        <button
-                          key={themeOption}
-                          onClick={() =>
-                            handleUIChange("theme", themeOption as any)
-                          }
-                          className={`flex-1 py-1.5 px-3 rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-all ${
-                            editedUI.theme === themeOption
-                              ? "bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm"
-                              : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-                          }`}
-                        >
-                          {themeOption === "light" ? (
-                            <Sun className="w-3.5 h-3.5" />
-                          ) : (
-                            <Moon className="w-3.5 h-3.5" />
-                          )}
-                          <span>
-                            {themeOption === "light"
-                              ? t("Light Mode")
-                              : t("Dark Mode")}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {/* Interface Language */}
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
-                      {t("Language")}
-                    </label>
-                    <select
-                      value={editedUI.language}
-                      onChange={(e) =>
-                        handleUIChange("language", e.target.value)
-                      }
-                      className="w-full p-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-                    >
-                      <option value="en">{t("English")}</option>
-                      <option value="zh">{t("Chinese")}</option>
-                    </select>
+          <div className="space-y-6">
+            {/* 1. Interface Settings (UI) */}
+            <section className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors duration-200">
+              <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex items-center gap-2">
+                <Globe className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                <h2 className="font-semibold text-slate-900 dark:text-slate-100">
+                  {t("Interface Preferences")}
+                </h2>
+              </div>
+              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Theme Mode */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
+                    {t("Theme")}
+                  </label>
+                  <div className="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-xl">
+                    {["light", "dark"].map((themeOption) => (
+                      <button
+                        key={themeOption}
+                        onClick={() =>
+                          handleUIChange("theme", themeOption as any)
+                        }
+                        className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-all ${
+                          editedUI.theme === themeOption
+                            ? "bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm"
+                            : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                        }`}
+                      >
+                        {themeOption === "light" ? (
+                          <Sun className="w-4 h-4" />
+                        ) : (
+                          <Moon className="w-4 h-4" />
+                        )}
+                        <span>
+                          {themeOption === "light"
+                            ? t("Light Mode")
+                            : t("Dark Mode")}
+                        </span>
+                      </button>
+                    ))}
                   </div>
                 </div>
-              </section>
 
-              {/* System Language */}
-              <section className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-                <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex items-center gap-2">
-                  <Server className="w-4 h-4 text-purple-500 dark:text-purple-400" />
-                  <h2 className="font-semibold text-sm text-slate-900 dark:text-slate-100">
-                    {t("System Configuration")}
-                  </h2>
+                {/* Interface Language */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
+                    {t("Language")}
+                  </label>
+                  <select
+                    value={editedUI.language}
+                    onChange={(e) => handleUIChange("language", e.target.value)}
+                    className="w-full p-2.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                  >
+                    <option value="en">{t("English")}</option>
+                    <option value="zh">{t("Chinese")}</option>
+                  </select>
                 </div>
-                <div className="p-4">
-                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+              </div>
+            </section>
+
+            {/* 2. System Configuration */}
+            <section className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors duration-200">
+              <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex items-center gap-2">
+                <Server className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                <h2 className="font-semibold text-slate-900 dark:text-slate-100">
+                  {t("System Configuration")}
+                </h2>
+              </div>
+              <div className="p-6 space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                     {t("System Language")}
                   </label>
-                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mb-2">
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mb-3">
                     {t("Default language for system operations")}
                   </p>
                   <select
@@ -1066,312 +1034,255 @@ export default function SettingsPage() {
                     onChange={(e) =>
                       handleConfigChange("system", "language", e.target.value)
                     }
-                    className="w-full p-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                    className="w-full md:w-1/2 p-2.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                   >
                     <option value="en">English</option>
                     <option value="zh">Chinese</option>
                   </select>
                 </div>
-              </section>
+              </div>
+            </section>
 
-              {/* Active Models Status */}
-              {data?.env && (
-                <section className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-                  <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Cpu className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
-                      <h2 className="font-semibold text-sm text-slate-900 dark:text-slate-100">
-                        {t("Active Models")}
-                      </h2>
-                    </div>
-                    <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded font-medium">
-                      {t("Status")}
-                    </span>
-                  </div>
-                  <div className="p-4">
-                    <div className="flex items-center gap-3 p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-100 dark:border-emerald-800">
-                      <div className="p-2 bg-white dark:bg-slate-700 rounded-lg shadow-sm">
-                        <Server className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs text-emerald-700 dark:text-emerald-300 font-medium">
-                          {t("Active LLM Model")}
-                        </p>
-                        <p className="text-sm font-bold text-emerald-900 dark:text-emerald-200 font-mono truncate">
-                          {data.env.model || t("Not configured")}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </section>
-              )}
-            </div>
-
-            {/* Row 2: RAG Provider (Currently locked to RAG-Anything) */}
-            <section className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-              <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex items-center gap-2">
-                <Database className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                <h2 className="font-semibold text-sm text-slate-900 dark:text-slate-100">
-                  {t("RAG Provider")}
+            {/* 3. Research Tools */}
+            <section className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors duration-200">
+              <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex items-center gap-2">
+                <Search className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                <h2 className="font-semibold text-slate-900 dark:text-slate-100">
+                  {t("Research Tools")}
                 </h2>
               </div>
-              <div className="p-4">
-                <div className="flex flex-col lg:flex-row lg:items-start gap-4">
-                  <div className="flex-1">
-                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                      {t("Active RAG System")}
-                    </label>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mb-2">
-                      {t(
-                        "RAG-Anything provides end-to-end academic document processing with MinerU and LightRAG",
-                      )}
-                    </p>
-                    {loadingRagProviders ? (
-                      <div className="flex items-center gap-2 text-sm text-slate-500">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Loading providers...</span>
-                      </div>
-                    ) : (
-                      <div className="w-full p-2 bg-slate-100 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg text-sm text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                        <span>
-                          RAG-Anything - End-to-end academic document processing
-                          (MinerU + LightRAG)
-                        </span>
-                        <span className="text-[10px] px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full">
-                          Default
-                        </span>
-                      </div>
-                    )}
+              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Web Search */}
+                <div className="p-5 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-100 dark:border-slate-600">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="font-medium text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-blue-500 dark:text-blue-400" />{" "}
+                      {t("Web Search")}
+                    </span>
+                    <div className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={
+                          editedConfig.tools?.web_search?.enabled ?? true
+                        }
+                        onChange={(e) =>
+                          handleConfigChange(
+                            "tools",
+                            "enabled",
+                            e.target.checked,
+                            "web_search",
+                          )
+                        }
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 dark:bg-slate-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-100 dark:peer-focus:ring-blue-900 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 dark:after:border-slate-500 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </div>
                   </div>
-                  <div className="lg:w-1/2 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-700/50 p-3 rounded-lg border border-slate-100 dark:border-slate-600">
-                    <p>
-                      RAG-Anything combines MinerU for multimodal PDF parsing
-                      (images, tables, equations) with LightRAG for knowledge
-                      graph construction.
-                    </p>
-                    <p className="mt-1.5">
-                      <span className="font-medium text-slate-600 dark:text-slate-300">
-                        Supported modes:
-                      </span>{" "}
-                      hybrid, local, global, naive
-                    </p>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                      {t("Max Results")}
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="20"
+                      value={editedConfig.tools?.web_search?.max_results || 5}
+                      onChange={(e) =>
+                        handleConfigChange(
+                          "tools",
+                          "max_results",
+                          parseInt(e.target.value),
+                          "web_search",
+                        )
+                      }
+                      className="w-full p-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-slate-100"
+                    />
+                  </div>
+                </div>
+
+                {/* RAG / Knowledge Base */}
+                <div className="p-5 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-100 dark:border-slate-600">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="font-medium text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                      <Database className="w-4 h-4 text-purple-500 dark:text-purple-400" />{" "}
+                      {t("Knowledge Base")}
+                    </span>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                        {t("Default KB")}
+                      </label>
+                      <input
+                        type="text"
+                        value={editedConfig.tools?.rag_tool?.default_kb || ""}
+                        onChange={(e) =>
+                          handleConfigChange(
+                            "tools",
+                            "default_kb",
+                            e.target.value,
+                            "rag_tool",
+                          )
+                        }
+                        className="w-full p-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-slate-100"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                        {t("Base Directory")}
+                      </label>
+                      <input
+                        type="text"
+                        value={editedConfig.tools?.rag_tool?.kb_base_dir || ""}
+                        onChange={(e) =>
+                          handleConfigChange(
+                            "tools",
+                            "kb_base_dir",
+                            e.target.value,
+                            "rag_tool",
+                          )
+                        }
+                        className="w-full p-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-mono text-slate-600 dark:text-slate-300"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
             </section>
 
-            {/* Row 3: Research Tools (Web Search + Knowledge Base) + TTS */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Research Tools */}
-              <section className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-                <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex items-center gap-2">
-                  <Search className="w-4 h-4 text-amber-500 dark:text-amber-400" />
-                  <h2 className="font-semibold text-sm text-slate-900 dark:text-slate-100">
-                    {t("Research Tools")}
-                  </h2>
+            {/* 4. TTS Settings */}
+            <section className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors duration-200">
+              <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex items-center gap-2">
+                <Volume2 className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                <h2 className="font-semibold text-slate-900 dark:text-slate-100">
+                  {t("Text-to-Speech")}
+                </h2>
+              </div>
+              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    {t("Default Voice")}
+                  </label>
+                  <input
+                    type="text"
+                    value={editedConfig.tts?.default_voice || "Cherry"}
+                    onChange={(e) =>
+                      handleConfigChange("tts", "default_voice", e.target.value)
+                    }
+                    className="w-full p-2.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-sm text-slate-900 dark:text-slate-100"
+                  />
                 </div>
-                <div className="p-4 grid grid-cols-2 gap-3">
-                  {/* Web Search */}
-                  <div className="p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-100 dark:border-slate-600">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                        <Globe className="w-3.5 h-3.5 text-blue-500" />
-                        {t("Web Search")}
-                      </span>
-                      <div className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={
-                            editedConfig.tools?.web_search?.enabled ?? true
-                          }
-                          onChange={(e) =>
-                            handleConfigChange(
-                              "tools",
-                              "enabled",
-                              e.target.checked,
-                              "web_search",
-                            )
-                          }
-                          className="sr-only peer"
-                        />
-                        <div className="w-9 h-5 bg-slate-200 dark:bg-slate-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 dark:after:border-slate-500 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-                      </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    {t("Default Language")}
+                  </label>
+                  <input
+                    type="text"
+                    value={editedConfig.tts?.default_language || "English"}
+                    onChange={(e) =>
+                      handleConfigChange(
+                        "tts",
+                        "default_language",
+                        e.target.value,
+                      )
+                    }
+                    className="w-full p-2.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-sm text-slate-900 dark:text-slate-100"
+                  />
+                </div>
+              </div>
+            </section>
+
+            {/* Active Models Status */}
+            {data?.env && (
+              <section className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors duration-200">
+                <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Cpu className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                    <h2 className="font-semibold text-slate-900 dark:text-slate-100">
+                      {t("Active Models")}
+                    </h2>
+                  </div>
+                  <span className="text-xs bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300 px-2 py-1 rounded">
+                    {t("Status")}
+                  </span>
+                </div>
+                <div className="p-6">
+                  <div className="flex items-center p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-100 dark:border-emerald-800">
+                    <div className="p-3 bg-white dark:bg-slate-700 rounded-full shadow-sm mr-4">
+                      <Server className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-                        {t("Max Results")}
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="20"
-                        value={editedConfig.tools?.web_search?.max_results || 5}
-                        onChange={(e) =>
-                          handleConfigChange(
-                            "tools",
-                            "max_results",
-                            parseInt(e.target.value),
-                            "web_search",
-                          )
-                        }
-                        className="w-full p-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded text-xs text-slate-900 dark:text-slate-100"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Knowledge Base */}
-                  <div className="p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-100 dark:border-slate-600">
-                    <div className="flex items-center mb-3">
-                      <span className="text-xs font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                        <Database className="w-3.5 h-3.5 text-purple-500" />
-                        {t("Knowledge Base")}
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      <div>
-                        <label className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-                          {t("Default KB")}
-                        </label>
-                        <input
-                          type="text"
-                          value={editedConfig.tools?.rag_tool?.default_kb || ""}
-                          onChange={(e) =>
-                            handleConfigChange(
-                              "tools",
-                              "default_kb",
-                              e.target.value,
-                              "rag_tool",
-                            )
-                          }
-                          className="w-full p-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded text-xs text-slate-900 dark:text-slate-100"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-                          {t("Base Directory")}
-                        </label>
-                        <input
-                          type="text"
-                          value={
-                            editedConfig.tools?.rag_tool?.kb_base_dir || ""
-                          }
-                          onChange={(e) =>
-                            handleConfigChange(
-                              "tools",
-                              "kb_base_dir",
-                              e.target.value,
-                              "rag_tool",
-                            )
-                          }
-                          className="w-full p-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded text-xs font-mono text-slate-600 dark:text-slate-300"
-                        />
-                      </div>
+                      <p className="text-sm text-emerald-800 dark:text-emerald-300 font-medium mb-1">
+                        {t("Active LLM Model")}
+                      </p>
+                      <p className="text-lg font-bold text-emerald-900 dark:text-emerald-200 font-mono">
+                        {data.env.model || t("Not configured")}
+                      </p>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
+                        {t("Configure in Environment Variables tab")}
+                      </p>
                     </div>
                   </div>
                 </div>
               </section>
-
-              {/* TTS Settings */}
-              <section className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-                <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex items-center gap-2">
-                  <Volume2 className="w-4 h-4 text-rose-500 dark:text-rose-400" />
-                  <h2 className="font-semibold text-sm text-slate-900 dark:text-slate-100">
-                    {t("Text-to-Speech")}
-                  </h2>
-                </div>
-                <div className="p-4 grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
-                      {t("Default Voice")}
-                    </label>
-                    <input
-                      type="text"
-                      value={editedConfig.tts?.default_voice || "Cherry"}
-                      onChange={(e) =>
-                        handleConfigChange(
-                          "tts",
-                          "default_voice",
-                          e.target.value,
-                        )
-                      }
-                      className="w-full p-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-slate-100"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
-                      {t("Default Language")}
-                    </label>
-                    <input
-                      type="text"
-                      value={editedConfig.tts?.default_language || "English"}
-                      onChange={(e) =>
-                        handleConfigChange(
-                          "tts",
-                          "default_language",
-                          e.target.value,
-                        )
-                      }
-                      className="w-full p-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-slate-100"
-                    />
-                  </div>
-                </div>
-              </section>
-            </div>
+            )}
           </div>
         )}
 
         {/* Environment Variables Tab */}
         {activeTab === "environment" && envConfig && (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {/* Status Overview */}
-            <section className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-              <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex items-center justify-between">
+            <section className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors duration-200">
+              <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Cpu className="w-4 h-4 text-blue-500 dark:text-blue-400" />
-                  <h2 className="font-semibold text-sm text-slate-900 dark:text-slate-100">
+                  <Cpu className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                  <h2 className="font-semibold text-slate-900 dark:text-slate-100">
                     {t("Configuration Status")}
                   </h2>
                 </div>
                 <button
                   onClick={testEnvConfig}
                   disabled={testing}
-                  className="px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-md flex items-center gap-1.5 transition-colors"
+                  className="px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg flex items-center gap-1.5 transition-colors"
                 >
                   {testing ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   ) : (
-                    <RefreshCw className="w-3 h-3" />
+                    <RefreshCw className="w-3.5 h-3.5" />
                   )}
                   {t("Refresh Status")}
                 </button>
               </div>
 
-              <div className="p-4">
+              <div className="p-6">
                 {/* Info Banner */}
-                <div className="mb-3 p-2.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg text-[11px] text-blue-700 dark:text-blue-300 flex items-start gap-2">
-                  <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-                  <p>
-                    <span className="font-medium">
-                      {t("Runtime Configuration")}:
-                    </span>{" "}
-                    <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded text-[10px]">
-                      .env
-                    </code>{" "}
-                    {t("file on startup")}.{" "}
-                    {t(
-                      "Changes made here take effect immediately but are not saved to file",
-                    )}
-                    .
-                  </p>
+                <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg text-xs text-blue-700 dark:text-blue-300 flex items-start gap-2">
+                  <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium mb-1">
+                      {t("Runtime Configuration")}
+                    </p>
+                    <p className="text-blue-600 dark:text-blue-400">
+                      <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">
+                        .env
+                      </code>{" "}
+                      {t("file on startup")}.{" "}
+                      {t(
+                        "Changes made here take effect immediately but are not saved to file",
+                      )}
+                      . {t("On restart, values will be reloaded from")} .env.
+                    </p>
+                  </div>
                 </div>
 
                 {/* Test Results */}
                 {testResults && (
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-3 gap-3">
                     {Object.entries(testResults).map(([key, result]) => (
                       <div
                         key={key}
-                        className={`p-2.5 rounded-lg border ${
+                        className={`p-4 rounded-xl border ${
                           result.status === "configured"
                             ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
                             : result.status === "not_configured"
@@ -1379,13 +1290,13 @@ export default function SettingsPage() {
                               : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
                         }`}
                       >
-                        <div className="flex items-center gap-1.5 mb-1">
+                        <div className="flex items-center gap-2 mb-2">
                           {getStatusIcon(result.status)}
-                          <span className="text-xs font-semibold uppercase text-slate-700 dark:text-slate-200">
+                          <span className="text-sm font-semibold uppercase text-slate-700 dark:text-slate-200">
                             {key}
                           </span>
                         </div>
-                        <p className="text-[10px] text-slate-600 dark:text-slate-400 truncate font-mono">
+                        <p className="text-xs text-slate-600 dark:text-slate-400 truncate font-mono">
                           {result.model || result.error || "Not configured"}
                         </p>
                       </div>
@@ -1395,95 +1306,91 @@ export default function SettingsPage() {
               </div>
             </section>
 
-            {/* Environment Variables by Category - 2-column layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {envConfig.categories.map((category) => {
-                const categoryVars = envConfig.variables.filter(
-                  (v) => v.category === category.id,
-                );
-                if (categoryVars.length === 0) return null;
+            {/* Environment Variables by Category */}
+            {envConfig.categories.map((category) => {
+              const categoryVars = envConfig.variables.filter(
+                (v) => v.category === category.id,
+              );
+              if (categoryVars.length === 0) return null;
 
-                return (
-                  <section
-                    key={category.id}
-                    className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden"
-                  >
-                    <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex items-center gap-2">
-                      <div className="text-blue-500 dark:text-blue-400">
-                        {getCategoryIcon(category.icon)}
-                      </div>
-                      <div>
-                        <h2 className="font-semibold text-sm text-slate-900 dark:text-slate-100">
-                          {category.name}
-                        </h2>
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                          {category.description}
-                        </p>
-                      </div>
+              return (
+                <section
+                  key={category.id}
+                  className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors duration-200"
+                >
+                  <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex items-center gap-2">
+                    <div className="text-blue-500 dark:text-blue-400">
+                      {getCategoryIcon(category.icon)}
                     </div>
+                    <div>
+                      <h2 className="font-semibold text-slate-900 dark:text-slate-100">
+                        {category.name}
+                      </h2>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {category.description}
+                      </p>
+                    </div>
+                  </div>
 
-                    <div className="p-4 space-y-3">
-                      {categoryVars.map((envVar) => (
-                        <div key={envVar.key} className="space-y-1">
-                          <div className="flex items-center justify-between">
-                            <label className="text-xs font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                              <code className="bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-800 dark:text-slate-200 text-[10px]">
-                                {envVar.key}
-                              </code>
-                              {envVar.required && (
-                                <span className="text-red-500 text-[9px] font-semibold">
-                                  REQUIRED
-                                </span>
-                              )}
-                              {envVar.is_set && (
-                                <CheckCircle className="w-3 h-3 text-green-500" />
-                              )}
-                            </label>
-                            {envVar.sensitive && (
-                              <button
-                                onClick={() =>
-                                  toggleSensitiveVisibility(envVar.key)
-                                }
-                                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-0.5"
-                              >
-                                {showSensitive[envVar.key] ? (
-                                  <EyeOff className="w-3.5 h-3.5" />
-                                ) : (
-                                  <Eye className="w-3.5 h-3.5" />
-                                )}
-                              </button>
+                  <div className="p-6 space-y-5">
+                    {categoryVars.map((envVar) => (
+                      <div key={envVar.key} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                            <code className="bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded text-slate-800 dark:text-slate-200 text-xs">
+                              {envVar.key}
+                            </code>
+                            {envVar.required && (
+                              <span className="text-red-500 text-[10px] font-semibold">
+                                REQUIRED
+                              </span>
                             )}
-                          </div>
-                          <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-1">
-                            {envVar.description}
-                          </p>
-                          <input
-                            type={
-                              envVar.sensitive && !showSensitive[envVar.key]
-                                ? "password"
-                                : "text"
-                            }
-                            value={editedEnvVars[envVar.key] || ""}
-                            onChange={(e) =>
-                              handleEnvVarChange(envVar.key, e.target.value)
-                            }
-                            placeholder={
-                              envVar.default || `Enter ${envVar.key}`
-                            }
-                            className="w-full p-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs text-slate-900 dark:text-slate-100 font-mono placeholder:text-slate-300 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-                          />
+                            {envVar.is_set && (
+                              <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                            )}
+                          </label>
+                          {envVar.sensitive && (
+                            <button
+                              onClick={() =>
+                                toggleSensitiveVisibility(envVar.key)
+                              }
+                              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1"
+                            >
+                              {showSensitive[envVar.key] ? (
+                                <EyeOff className="w-4 h-4" />
+                              ) : (
+                                <Eye className="w-4 h-4" />
+                              )}
+                            </button>
+                          )}
                         </div>
-                      ))}
-                    </div>
-                  </section>
-                );
-              })}
-            </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {envVar.description}
+                        </p>
+                        <input
+                          type={
+                            envVar.sensitive && !showSensitive[envVar.key]
+                              ? "password"
+                              : "text"
+                          }
+                          value={editedEnvVars[envVar.key] || ""}
+                          onChange={(e) =>
+                            handleEnvVarChange(envVar.key, e.target.value)
+                          }
+                          placeholder={envVar.default || `Enter ${envVar.key}`}
+                          className="w-full p-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-sm text-slate-900 dark:text-slate-100 font-mono placeholder:text-slate-300 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
 
             {/* Save Environment Variables */}
-            <div className="pt-2 pb-4">
+            <div className="pt-4 pb-8">
               {envError && (
-                <div className="mb-3 p-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-2 text-red-700 dark:text-red-400 text-xs">
+                <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-2 text-red-700 dark:text-red-400 text-sm">
                   <AlertCircle className="w-4 h-4" />
                   <span>{envError}</span>
                 </div>
@@ -1491,20 +1398,20 @@ export default function SettingsPage() {
               <button
                 onClick={handleEnvSave}
                 disabled={envSaving}
-                className={`w-full py-3 rounded-xl font-bold text-base flex items-center justify-center gap-2 transition-all ${
+                className={`w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-3 transition-all ${
                   envSaving
                     ? "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500"
                     : envSaveSuccess
-                      ? "bg-green-500 text-white shadow-lg shadow-green-500/30"
-                      : "bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:shadow-lg hover:shadow-orange-500/30 hover:-translate-y-0.5"
+                      ? "bg-green-500 text-white shadow-xl shadow-green-500/30 scale-[1.02]"
+                      : "bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:shadow-xl hover:shadow-orange-500/30 hover:-translate-y-1"
                 }`}
               >
                 {envSaving ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <Loader2 className="w-6 h-6 animate-spin" />
                 ) : envSaveSuccess ? (
-                  <Check className="w-5 h-5" />
+                  <Check className="w-6 h-6" />
                 ) : (
-                  <Key className="w-5 h-5" />
+                  <Key className="w-6 h-6" />
                 )}
                 {envSaveSuccess
                   ? t("Environment Updated!")
@@ -1516,14 +1423,14 @@ export default function SettingsPage() {
 
         {/* LLM Providers Tab */}
         {activeTab === "llm_providers" && (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {/* Header & Add Button */}
-            <div className="flex justify-between items-center bg-white dark:bg-slate-800 px-4 py-3 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+            <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
               <div>
-                <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                   LLM Service Providers
                 </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
                   Configure and manage multiple LLM backends.
                 </p>
               </div>
@@ -1544,89 +1451,87 @@ export default function SettingsPage() {
                   setShowProviderForm(true);
                   setTestProviderResult(null);
                 }}
-                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-1.5 text-xs font-medium transition-colors"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 text-sm font-medium transition-colors"
               >
-                <SettingsIcon className="w-3.5 h-3.5" />
+                <SettingsIcon className="w-4 h-4" />
                 Add Provider
               </button>
             </div>
 
             {/* Provider List */}
             {loadingProviders ? (
-              <div className="flex justify-center p-6">
-                <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+              <div className="flex justify-center p-8">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
               </div>
             ) : providers.length === 0 ? (
-              <div className="text-center p-8 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
-                <Brain className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
-                <p className="text-sm text-slate-500 dark:text-slate-400">
+              <div className="text-center p-12 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
+                <Brain className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+                <p className="text-slate-500 dark:text-slate-400">
                   No providers configured yet.
                 </p>
               </div>
             ) : (
-              <div className="grid gap-3">
+              <div className="grid gap-4">
                 {providers.map((provider) => (
                   <div
                     key={provider.name}
-                    className={`bg-white dark:bg-slate-800 px-4 py-3 rounded-xl shadow-sm border transition-all ${provider.is_active ? "border-blue-500 ring-1 ring-blue-500/20" : "border-slate-200 dark:border-slate-700"}`}
+                    className={`bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border transition-all ${provider.is_active ? "border-blue-500 ring-1 ring-blue-500/20" : "border-slate-200 dark:border-slate-700"}`}
                   >
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-start gap-4">
                         <div
-                          className={`p-2 rounded-lg flex-shrink-0 ${provider.is_active ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"}`}
+                          className={`p-3 rounded-xl ${provider.is_active ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"}`}
                         >
-                          <Server className="w-4 h-4" />
+                          <Server className="w-6 h-6" />
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-sm">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-lg">
                               {provider.name}
                             </h3>
                             {provider.is_active && (
-                              <span className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] rounded font-medium">
+                              <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-full font-medium">
                                 Active
                               </span>
                             )}
-                            <span className="text-[10px] bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-600 uppercase tracking-wider font-semibold text-slate-500">
-                              {provider.binding}
-                            </span>
                           </div>
-                          <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                            <span className="font-medium text-slate-600 dark:text-slate-300">
-                              {provider.model}
-                            </span>
-                            <span className="text-slate-300 dark:text-slate-600">
-                              •
-                            </span>
-                            <span className="font-mono truncate text-[10px]">
+                          <div className="mt-1 space-y-1">
+                            <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                              <span className="text-xs bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-600 uppercase tracking-wider font-semibold">
+                                {provider.binding}
+                              </span>
+                              <span>{provider.model}</span>
+                            </div>
+                            <div className="text-xs text-slate-400 font-mono">
                               {provider.base_url}
-                            </span>
+                            </div>
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                      <div className="flex items-center gap-2">
                         {!provider.is_active && (
                           <button
                             onClick={() =>
                               handleActivateProvider(provider.name)
                             }
-                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors"
+                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                             title="Set as Active"
                           >
-                            <CheckCircle className="w-4 h-4" />
+                            <CheckCircle className="w-5 h-5" />
                           </button>
                         )}
                         <button
                           onClick={() => handleTestProvider(provider)}
-                          className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-md transition-colors"
+                          className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
                           title="Test Connection"
                         >
-                          <RefreshCw className="w-4 h-4" />
+                          <RefreshCw className="w-5 h-5" />
                         </button>
                         <button
                           onClick={() => {
                             setEditingProvider({ ...provider });
                             setOriginalProviderName(provider.name);
+                            // Try to infer preset from URL
                             const preset =
                               PROVIDER_PRESETS.find(
                                 (p) =>
@@ -1639,17 +1544,17 @@ export default function SettingsPage() {
                             setShowProviderForm(true);
                             setTestProviderResult(null);
                           }}
-                          className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-md transition-colors"
+                          className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
                           title="Edit"
                         >
-                          <Sliders className="w-4 h-4" />
+                          <Sliders className="w-5 h-5" />
                         </button>
                         <button
                           onClick={() => handleDeleteProvider(provider.name)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                           title="Delete"
                         >
-                          <XCircle className="w-4 h-4" />
+                          <XCircle className="w-5 h-5" />
                         </button>
                       </div>
                     </div>
@@ -1661,21 +1566,21 @@ export default function SettingsPage() {
             {/* Edit/Add Form Modal */}
             {showProviderForm && editingProvider && (
               <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[85vh]">
-                  <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                    <h3 className="font-semibold text-sm text-slate-900 dark:text-slate-100">
+                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+                  <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                    <h3 className="font-semibold text-lg text-slate-900 dark:text-slate-100">
                       {editingProvider.name ? "Edit Provider" : "Add Provider"}
                     </h3>
                     <button
                       onClick={() => setShowProviderForm(false)}
-                      className="text-slate-400 hover:text-slate-600 p-1"
+                      className="text-slate-400 hover:text-slate-600"
                     >
-                      <XCircle className="w-5 h-5" />
+                      <XCircle className="w-6 h-6" />
                     </button>
                   </div>
-                  <div className="p-4 overflow-y-auto space-y-3">
+                  <div className="p-6 overflow-y-auto space-y-4">
                     <div>
-                      <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                         Provider Service
                       </label>
                       <select
@@ -1694,12 +1599,13 @@ export default function SettingsPage() {
                                 preset.base_url || editingProvider.base_url,
                               model:
                                 preset.default_model || editingProvider.model,
+                              // don't clear api key if switching between compatible presets? maybe better to clear or keep? keeping for now.
                             });
                             setCustomModelInput(preset.models.length === 0);
                             setFetchedModels([]);
                           }
                         }}
-                        className="w-full p-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-slate-100 font-medium"
+                        className="w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-900 dark:text-slate-100 font-medium"
                       >
                         {PROVIDER_PRESETS.map((preset) => (
                           <option key={preset.id} value={preset.id}>
@@ -1709,7 +1615,7 @@ export default function SettingsPage() {
                       </select>
                       {PROVIDER_PRESETS.find((p) => p.id === selectedPresetId)
                         ?.help_text && (
-                        <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                           {
                             PROVIDER_PRESETS.find(
                               (p) => p.id === selectedPresetId,
@@ -1718,9 +1624,9 @@ export default function SettingsPage() {
                         </p>
                       )}
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                           Name
                         </label>
                         <input
@@ -1739,24 +1645,25 @@ export default function SettingsPage() {
                             )
                           }
                           placeholder="My Provider"
-                          className="w-full p-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm"
+                          className="w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        {/* Hidden binding but kept for data structure */}
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                           Binding
                         </label>
                         <input
                           type="text"
                           value={editingProvider.binding}
                           disabled
-                          className="w-full p-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-500"
+                          className="w-full p-2.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-500"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                         Base URL
                       </label>
                       <input
@@ -1768,34 +1675,36 @@ export default function SettingsPage() {
                           )
                         }
                         placeholder="https://api.openai.com/v1"
-                        className="w-full p-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg font-mono text-xs"
+                        className="w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg font-mono text-sm"
                       />
                     </div>
 
                     {PROVIDER_PRESETS.find((p) => p.id === selectedPresetId)
                       ?.requires_key !== false && (
                       <div>
-                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                           API Key
                         </label>
-                        <input
-                          type="password"
-                          value={editingProvider.api_key}
-                          onChange={(e) =>
-                            setEditingProvider((prev) =>
-                              prev
-                                ? { ...prev, api_key: e.target.value }
-                                : null,
-                            )
-                          }
-                          placeholder="sk-..."
-                          className="w-full p-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg font-mono text-xs"
-                        />
+                        <div className="relative">
+                          <input
+                            type="password"
+                            value={editingProvider.api_key}
+                            onChange={(e) =>
+                              setEditingProvider((prev) =>
+                                prev
+                                  ? { ...prev, api_key: e.target.value }
+                                  : null,
+                              )
+                            }
+                            placeholder="sk-..."
+                            className="w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg font-mono text-sm"
+                          />
+                        </div>
                       </div>
                     )}
 
                     <div>
-                      <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1 flex justify-between">
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 flex justify-between">
                         <span>Model</span>
                         {PROVIDER_PRESETS.find((p) => p.id === selectedPresetId)
                           ?.models.length! > 0 && (
@@ -1803,7 +1712,7 @@ export default function SettingsPage() {
                             onClick={() =>
                               setCustomModelInput(!customModelInput)
                             }
-                            className="text-[10px] text-blue-600 hover:underline"
+                            className="text-xs text-blue-600 hover:underline"
                           >
                             {customModelInput
                               ? "Select from list"
@@ -1827,7 +1736,7 @@ export default function SettingsPage() {
                                     : null,
                                 )
                               }
-                              className="w-full p-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm appearance-none"
+                              className="w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg appearance-none"
                             >
                               {fetchedModels.length > 0 ? (
                                 <>
@@ -1852,7 +1761,7 @@ export default function SettingsPage() {
                             </select>
                             <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-slate-500">
                               <svg
-                                className="w-3.5 h-3.5"
+                                className="w-4 h-4"
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
@@ -1878,30 +1787,30 @@ export default function SettingsPage() {
                               )
                             }
                             placeholder="gpt-4o-mini"
-                            className="flex-1 p-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm"
+                            className="flex-1 p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg"
                           />
                         )}
                         <button
                           type="button"
                           onClick={fetchModels}
                           disabled={fetchingModels || !editingProvider.base_url}
-                          className="p-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors disabled:opacity-50"
+                          className="p-2.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors disabled:opacity-50"
                           title="Refresh Models from API"
                         >
                           {fetchingModels ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <Loader2 className="w-5 h-5 animate-spin" />
                           ) : (
-                            <RotateCcw className="w-4 h-4" />
+                            <RotateCcw className="w-5 h-5" />
                           )}
                         </button>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between pt-1">
+                    <div className="pt-2">
                       <button
                         type="button"
                         onClick={() => handleTestProvider(editingProvider)}
                         disabled={testingProvider}
-                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                        className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
                       >
                         {testingProvider ? (
                           <Loader2 className="w-3 h-3 animate-spin" />
@@ -1911,36 +1820,36 @@ export default function SettingsPage() {
                         Test Connection
                       </button>
                       {testProviderResult && (
-                        <span
-                          className={`text-[10px] px-2 py-0.5 rounded ${testProviderResult.success ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"}`}
+                        <div
+                          className={`mt-2 p-2 text-xs rounded ${testProviderResult.success ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"}`}
                         >
                           {testProviderResult.success
-                            ? "Success!"
+                            ? "Connection Successful!"
                             : `Failed: ${testProviderResult.message}`}
-                        </span>
+                        </div>
                       )}
                     </div>
                   </div>
-                  <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex flex-col gap-2">
+                  <div className="p-6 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex flex-col gap-3">
                     {providerError && (
-                      <div className="p-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-xs">
+                      <div className="p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm">
                         {providerError}
                       </div>
                     )}
-                    <div className="flex justify-end gap-2">
+                    <div className="flex justify-end gap-3">
                       <button
                         onClick={() => setShowProviderForm(false)}
-                        className="px-3 py-1.5 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg font-medium"
+                        className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg font-medium"
                       >
                         Cancel
                       </button>
                       <button
                         onClick={() => handleProviderSave(editingProvider)}
                         disabled={savingProvider}
-                        className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                       >
                         {savingProvider && (
-                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <Loader2 className="w-4 h-4 animate-spin" />
                         )}
                         {savingProvider ? "Saving..." : "Save Provider"}
                       </button>

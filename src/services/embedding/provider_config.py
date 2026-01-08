@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 USER_DATA_DIR = Path("./data/user")
 PROVIDERS_FILE = USER_DATA_DIR / "embedding_providers.json"
@@ -36,7 +36,8 @@ class EmbeddingProvider(BaseModel):
     normalized: bool = Field(default=True, description="L2 normalization")
     truncate: bool = Field(default=True, description="Truncate long texts")
 
-    model_config = ConfigDict(populate_by_name=True)
+    class Config:
+        populate_by_name = True
 
 
 class EmbeddingProviderConfigManager:

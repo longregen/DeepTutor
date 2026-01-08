@@ -131,8 +131,7 @@ class RagSettings(BaseSettings):
     )
 
     rag_provider: str = Field(
-        default="raganything",
-        description="RAG provider identifier. Default is 'raganything' (RAG-Anything with MinerU + LightRAG).",
+        default="lightrag", description="RAG provider identifier (if applicable)."
     )
 
 
