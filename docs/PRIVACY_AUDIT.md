@@ -18,7 +18,11 @@ DeepTutor **CAN be configured to run fully privately** with local LLMs, but requ
 | **HIGH** | CORS allows all origins (`allow_origins=["*"]`) |
 | **HIGH** | No authentication on API endpoints |
 | **MEDIUM** | Logs may contain sensitive query data |
+| **LOW** | KaTeX CDN loaded in Guide page (math rendering) |
 | **INFO** | External services are fully configurable |
+| **GOOD** | No telemetry, analytics, or phone-home functionality |
+| **GOOD** | No author-owned domains in runtime code |
+| **GOOD** | Usage statistics are LOCAL only |
 
 ---
 
@@ -47,6 +51,58 @@ The following URLs are hardcoded but **only used as fallbacks when no configurat
 | `settings.py:66` | `http://localhost:11434/v1/` | **DEFAULT** - Local Ollama (privacy-safe) |
 
 **Good News:** The default settings in `settings.py` point to local Ollama (`localhost:11434`), making the default configuration privacy-friendly.
+
+### 1.3 Telemetry, Analytics & Phone-Home Analysis
+
+**VERIFIED: No telemetry or analytics services are present in the codebase.**
+
+| Check | Result | Details |
+|-------|--------|---------|
+| Google Analytics | ❌ Not Found | No `gtag`, `gtm`, or GA scripts |
+| Mixpanel | ❌ Not Found | No Mixpanel SDK |
+| Segment | ❌ Not Found | No Segment tracking |
+| Amplitude | ❌ Not Found | No Amplitude SDK |
+| Sentry | ❌ Not Found | No error reporting service |
+| PostHog | ❌ Not Found | No PostHog analytics |
+| Custom Telemetry | ❌ Not Found | No phone-home endpoints |
+
+### 1.4 Author/HKUDS Domain Analysis
+
+**VERIFIED: No author-owned domains make runtime connections.**
+
+The `HKUDS` (HKU Data Intelligence Lab) domain references are found ONLY in:
+
+| Location | Type | Runtime Impact |
+|----------|------|----------------|
+| `README.md` | Documentation | ❌ None |
+| `Communication.md` | Social links | ❌ None |
+| `.github/workflows/` | CI/CD | ❌ None |
+| `ghcr.io/hkuds/deeptutor` | Docker image | ❌ Only when pulling image |
+| `scripts/generate_roster.py` | Development script | ❌ None |
+
+**No runtime code connects to HKUDS domains.**
+
+### 1.5 Usage Statistics & Observability
+
+**All statistics are LOCAL only** - nothing is sent externally.
+
+| Component | Location | Data Collected | Sent Externally |
+|-----------|----------|----------------|-----------------|
+| `LLMStats` | `src/core/logging/llm_stats.py` | Token counts, costs | ❌ No - terminal output only |
+| `TokenTracker` | `src/agents/*/utils/token_tracker.py` | Per-agent token usage | ❌ No - saved to local JSON |
+| `PerformanceMonitor` | `src/agents/solve/utils/performance_monitor.py` | Agent performance metrics | ❌ No - local `performance_report.json` |
+| `ProgressTracker` | `src/knowledge/progress_tracker.py` | Document processing progress | ❌ No - internal WebSocket only |
+
+All "callbacks" in the codebase are for **internal WebSocket communication** to the frontend, not external reporting.
+
+### 1.6 Frontend External Dependencies
+
+| Dependency | Source | When Loaded | Privacy Impact |
+|------------|--------|-------------|----------------|
+| **Google Fonts (Inter)** | `next/font/google` | Build time only | ⚠️ LOW - Downloaded during `npm build`, not at runtime |
+| **KaTeX** | `cdn.jsdelivr.net` | Runtime (Guide page) | ⚠️ LOW - For math rendering, user's IP visible to CDN |
+
+**To eliminate KaTeX CDN dependency:** Bundle KaTeX locally (see mitigation below).
 
 ---
 
@@ -337,6 +393,7 @@ volumes:
 - [ ] Disable web search in `config/main.yaml`
 - [ ] Set logging level to `INFO` or higher
 - [ ] Bind API to localhost only (if not using Docker)
+- [ ] (Optional) Bundle KaTeX locally to eliminate CDN dependency
 
 ### Verification
 
@@ -439,6 +496,53 @@ With proper configuration, DeepTutor can run completely air-gapped with zero dat
 | `mxbai-embed-large` | 1024 |
 | `all-minilm` | 384 |
 | `bge-large` | 1024 |
+
+---
+
+## Appendix B: Eliminating KaTeX CDN Dependency
+
+The Guide page (`web/app/guide/page.tsx`) injects KaTeX from `cdn.jsdelivr.net` for math rendering. To eliminate this for fully air-gapped deployment:
+
+### Option 1: Install KaTeX as npm dependency
+
+```bash
+cd web
+npm install katex
+```
+
+Then modify `web/app/guide/page.tsx` to import from local package instead of CDN.
+
+### Option 2: Self-host KaTeX files
+
+1. Download KaTeX distribution from https://github.com/KaTeX/KaTeX/releases
+2. Place files in `web/public/katex/`
+3. Update `injectKaTeX()` function in `web/app/guide/page.tsx`:
+
+```javascript
+const katexCSS = '<link rel="stylesheet" href="/katex/katex.min.css">';
+const katexJS = '<script defer src="/katex/katex.min.js"></script>';
+const katexAutoRender = '<script defer src="/katex/contrib/auto-render.min.js" onload="renderMathInElement(document.body);"></script>';
+```
+
+---
+
+## Appendix C: Network Monitoring Commands
+
+Use these commands to verify no unexpected external connections:
+
+```bash
+# Linux - Monitor all outgoing connections
+sudo tcpdump -i any -n 'dst port 80 or dst port 443' | grep -v 'localhost\|127.0.0.1\|11434'
+
+# macOS - Monitor connections
+nettop -P -m route
+
+# Windows PowerShell - Check established connections
+Get-NetTCPConnection | Where-Object {$_.State -eq 'Established' -and $_.RemotePort -in 80,443} | Select RemoteAddress
+
+# Docker - Monitor container network
+docker run --rm --net=host nicolaka/netshoot tcpdump -i any -n 'dst port 80 or dst port 443'
+```
 
 ---
 
