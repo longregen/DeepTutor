@@ -18,7 +18,6 @@ DeepTutor **CAN be configured to run fully privately** with local LLMs, but requ
 | **HIGH** | CORS allows all origins (`allow_origins=["*"]`) |
 | **HIGH** | No authentication on API endpoints |
 | **MEDIUM** | Logs may contain sensitive query data |
-| **LOW** | KaTeX CDN loaded in Guide page (math rendering) |
 | **INFO** | External services are fully configurable |
 | **GOOD** | No telemetry, analytics, or phone-home functionality |
 | **GOOD** | No author-owned domains in runtime code |
@@ -99,10 +98,10 @@ All "callbacks" in the codebase are for **internal WebSocket communication** to 
 
 | Dependency | Source | When Loaded | Privacy Impact |
 |------------|--------|-------------|----------------|
-| **Google Fonts (Inter)** | `next/font/google` | Build time only | ⚠️ LOW - Downloaded during `npm build`, not at runtime |
-| **KaTeX** | `cdn.jsdelivr.net` | Runtime (Guide page) | ⚠️ LOW - For math rendering, user's IP visible to CDN |
+| **Google Fonts (Inter)** | `next/font/google` | Build time only | ✅ Downloaded during `npm build`, not at runtime |
+| **KaTeX** | Local (`/katex/`) | Runtime (Guide page) | ✅ **BUNDLED LOCALLY** - No external requests |
 
-**To eliminate KaTeX CDN dependency:** Bundle KaTeX locally (see mitigation below).
+**KaTeX is now bundled locally** in `web/public/katex/` - no CDN requests are made.
 
 ---
 
@@ -393,7 +392,7 @@ volumes:
 - [ ] Disable web search in `config/main.yaml`
 - [ ] Set logging level to `INFO` or higher
 - [ ] Bind API to localhost only (if not using Docker)
-- [ ] (Optional) Bundle KaTeX locally to eliminate CDN dependency
+- [x] KaTeX bundled locally (no CDN dependency)
 
 ### Verification
 
@@ -499,30 +498,31 @@ With proper configuration, DeepTutor can run completely air-gapped with zero dat
 
 ---
 
-## Appendix B: Eliminating KaTeX CDN Dependency
+## Appendix B: KaTeX Local Bundling (COMPLETED)
 
-The Guide page (`web/app/guide/page.tsx`) injects KaTeX from `cdn.jsdelivr.net` for math rendering. To eliminate this for fully air-gapped deployment:
+**Status: ✅ IMPLEMENTED**
 
-### Option 1: Install KaTeX as npm dependency
+KaTeX v0.16.9 has been bundled locally for privacy. The files are located in:
 
-```bash
-cd web
-npm install katex
+```
+web/public/katex/
+├── katex.min.css
+├── katex.min.js
+├── contrib/
+│   └── auto-render.min.js
+└── fonts/
+    └── (all KaTeX font files)
 ```
 
-Then modify `web/app/guide/page.tsx` to import from local package instead of CDN.
-
-### Option 2: Self-host KaTeX files
-
-1. Download KaTeX distribution from https://github.com/KaTeX/KaTeX/releases
-2. Place files in `web/public/katex/`
-3. Update `injectKaTeX()` function in `web/app/guide/page.tsx`:
+The Guide page (`web/app/guide/page.tsx`) now loads KaTeX from local files:
 
 ```javascript
 const katexCSS = '<link rel="stylesheet" href="/katex/katex.min.css">';
 const katexJS = '<script defer src="/katex/katex.min.js"></script>';
 const katexAutoRender = '<script defer src="/katex/contrib/auto-render.min.js" onload="renderMathInElement(document.body);"></script>';
 ```
+
+**No external CDN requests are made for math rendering.**
 
 ---
 
