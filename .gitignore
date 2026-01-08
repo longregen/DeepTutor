@@ -69,6 +69,9 @@ web/dist/
 build/
 web/build/
 
+# KaTeX (copied from node_modules via postinstall)
+web/public/katex/
+
 # ============================================
 # Common Output and Cache Directories
 # ============================================
