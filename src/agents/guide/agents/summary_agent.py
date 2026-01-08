@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
 SummaryAgent - Learning Summary Generation Agent
 Generates personalized learning summary reports after users complete learning
@@ -7,19 +6,19 @@ Generates personalized learning summary reports after users complete learning
 
 from typing import Any
 
-from src.agents.base_agent import BaseAgent
+from .base_guide_agent import BaseGuideAgent
 
 
-class SummaryAgent(BaseAgent):
+class SummaryAgent(BaseGuideAgent):
     """Learning summary agent"""
 
     def __init__(self, api_key: str, base_url: str, language: str = "zh", binding: str = "openai"):
         super().__init__(
-            module_name="guide",
-            agent_name="summary_agent",
             api_key=api_key,
             base_url=base_url,
+            agent_name="summary_agent",
             language=language,
+            binding=binding,
         )
 
     def _format_knowledge_points(self, points: list[dict[str, Any]]) -> str:
