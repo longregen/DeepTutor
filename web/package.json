@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "postinstall": "mkdir -p public/katex && cp -r node_modules/katex/dist/* public/katex/"
   },
   "dependencies": {
     "clsx": "^2.1.1",
@@ -14,6 +15,7 @@
     "framer-motion": "^12.24.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.0.0",
+    "katex": "^0.16.27",
     "lucide-react": "^0.562.0",
     "mermaid": "^11.12.2",
     "next": "^16.1.1",

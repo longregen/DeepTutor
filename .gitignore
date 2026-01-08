@@ -71,6 +71,9 @@ web/dist/
 build/
 web/build/
 
+# Generated from npm dependencies (via postinstall)
+web/public/katex/
+
 # ============================================
 # Common Output and Cache Directories
 # ============================================

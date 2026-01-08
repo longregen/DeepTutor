@@ -502,19 +502,21 @@ With proper configuration, DeepTutor can run completely air-gapped with zero dat
 
 **Status: ✅ IMPLEMENTED**
 
-KaTeX v0.16.9 has been bundled locally for privacy. The files are located in:
+KaTeX is installed as an npm dependency and copied to `public/katex/` via postinstall script:
 
-```
-web/public/katex/
-├── katex.min.css
-├── katex.min.js
-├── contrib/
-│   └── auto-render.min.js
-└── fonts/
-    └── (all KaTeX font files)
+```json
+// web/package.json
+{
+  "dependencies": {
+    "katex": "^0.16.27"
+  },
+  "scripts": {
+    "postinstall": "mkdir -p public/katex && cp -r node_modules/katex/dist/* public/katex/"
+  }
+}
 ```
 
-The Guide page (`web/app/guide/page.tsx`) now loads KaTeX from local files:
+The Guide page (`web/app/guide/page.tsx`) loads KaTeX from local files:
 
 ```javascript
 const katexCSS = '<link rel="stylesheet" href="/katex/katex.min.css">';
