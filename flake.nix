@@ -9,99 +9,8 @@
   outputs = { self, nixpkgs, flake-utils }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        # Overlay to add missing Python packages not in nixpkgs
-        pythonOverlay = final: prev: {
-          python311 = prev.python311.override {
-            packageOverrides = pyFinal: pyPrev: {
-              # perplexityai - Perplexity AI official SDK (not in nixpkgs)
-              perplexityai = pyFinal.buildPythonPackage rec {
-                pname = "perplexityai";
-                version = "0.1.0";
-                format = "setuptools";
-
-                src = pyFinal.fetchPypi {
-                  inherit pname version;
-                  sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-                };
-
-                propagatedBuildInputs = with pyFinal; [
-                  requests
-                  openai
-                ];
-
-                doCheck = false;
-                pythonImportsCheck = [ "perplexityai" ];
-
-                meta = with prev.lib; {
-                  description = "Perplexity AI Python SDK";
-                  homepage = "https://github.com/perplexityai/perplexity-py";
-                  license = licenses.mit;
-                };
-              };
-
-              # lightrag-hku - HKU Data Science Lab's LightRAG (not in nixpkgs)
-              lightrag-hku = pyFinal.buildPythonPackage rec {
-                pname = "lightrag-hku";
-                version = "1.0.0";
-                format = "pyproject";
-
-                src = pyFinal.fetchPypi {
-                  inherit pname version;
-                  sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-                };
-
-                build-system = [ pyFinal.setuptools ];
-
-                propagatedBuildInputs = with pyFinal; [
-                  numpy
-                  networkx
-                  tiktoken
-                  openai
-                  pydantic
-                ];
-
-                doCheck = false;
-                pythonImportsCheck = [ "lightrag" ];
-
-                meta = with prev.lib; {
-                  description = "LightRAG - Simple and Fast Retrieval-Augmented Generation";
-                  homepage = "https://github.com/HKUDS/LightRAG";
-                  license = licenses.mit;
-                };
-              };
-
-              # raganything - HKU's multimodal RAG system (not in nixpkgs)
-              raganything = pyFinal.buildPythonPackage rec {
-                pname = "raganything";
-                version = "0.1.0";
-                format = "pyproject";
-
-                src = pyFinal.fetchPypi {
-                  inherit pname version;
-                  sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-                };
-
-                build-system = [ pyFinal.setuptools ];
-
-                propagatedBuildInputs = with pyFinal; [
-                  numpy
-                  openai
-                  pydantic
-                  pillow
-                ];
-
-                doCheck = false;
-                pythonImportsCheck = [ "raganything" ];
-
-                meta = with prev.lib; {
-                  description = "RAG-Anything - Multimodal RAG System";
-                  homepage = "https://github.com/HKUDS/RAG-Anything";
-                  license = licenses.mit;
-                };
-              };
-            };
-          };
-        };
+        # Import the Python packages overlay
+        pythonOverlay = import ./nix/overlay.nix;
 
         pkgs = import nixpkgs {
           inherit system;
@@ -111,12 +20,16 @@
 
         # Python with all packages (nixpkgs + overlay)
         pythonWithPackages = pkgs.python311.withPackages (ps: [
+          # ============================================
           # Core dependencies
+          # ============================================
           ps.python-dotenv      # >=1.0.0, nixpkgs: 1.2.1
           ps.pyyaml             # >=6.0, nixpkgs: 6.0.3
           ps.tiktoken           # >=0.5.0, nixpkgs: 0.12.0
 
+          # ============================================
           # HTTP and API clients
+          # ============================================
           ps.requests           # >=2.32.2, nixpkgs: 2.32.5
           ps.openai             # >=1.30.0, nixpkgs: 2.11.0
           ps.dashscope          # >=1.14.0, nixpkgs: 1.25.5
@@ -125,39 +38,131 @@
           ps.urllib3            # >=2.2.1, nixpkgs: 2.6.0
           ps.perplexityai       # >=0.1.0 (from overlay)
 
+          # ============================================
           # Async support
+          # ============================================
           ps.nest-asyncio       # >=1.5.8, nixpkgs: 1.6.0
 
+          # ============================================
           # Web framework and server
+          # ============================================
           ps.fastapi            # >=0.100.0, nixpkgs: 0.121.1
           ps.uvicorn            # >=0.24.0, nixpkgs: 0.38.0
           ps.websockets         # >=12.0, nixpkgs: 15.0.1
           ps.python-multipart   # >=0.0.6, nixpkgs: 0.0.20
           ps.pydantic           # >=2.0.0, nixpkgs: 2.12.4
+          ps.gunicorn           # for production
 
+          # ============================================
           # RAG and knowledge base (from overlay)
+          # ============================================
           ps.lightrag-hku       # >=1.0.0 (from overlay)
           ps.raganything        # >=0.1.0 (from overlay)
 
-          # Academic and research tools
+          # ============================================
+          # LightRAG dependencies (from overlay)
+          # ============================================
+          ps.nano-vectordb      # (from overlay)
+          ps.pipmaster          # (from overlay)
+          ps.json-repair        # (from overlay)
+          ps.pypinyin           # (from overlay)
+
+          # ============================================
+          # Vector database clients (from overlay)
+          # ============================================
+          ps.pymilvus           # (from overlay)
+          ps.qdrant-client      # (from overlay)
+          ps.pgvector           # (from overlay)
+
+          # ============================================
+          # LLM providers
+          # ============================================
+          ps.anthropic          # nixpkgs
+          ps.ollama             # nixpkgs
+          ps.voyageai           # (from overlay)
+          ps.zhipuai            # (from overlay)
+          ps.google-genai       # (from overlay)
+
+          # ============================================
+          # Storage backends (nixpkgs)
+          # ============================================
+          ps.asyncpg            # PostgreSQL async
+          ps.neo4j              # Graph database
+          ps.pymongo            # MongoDB
+          ps.redis              # Redis
+
+          # ============================================
+          # Document processing (from overlay)
+          # ============================================
+          ps.docling            # (from overlay)
+          ps.mineru             # (from overlay)
+
+          # ============================================
+          # Evaluation & Observability (from overlay)
+          # ============================================
+          ps.ragas              # (from overlay)
+          ps.langfuse           # (from overlay)
+
+          # ============================================
+          # Visualization (from overlay)
+          # ============================================
+          ps.imgui-bundle       # (from overlay)
+          ps.pyglm              # (from overlay)
+          ps.python-louvain     # (from overlay)
+
+          # ============================================
+          # Scientific computing (nixpkgs)
+          # ============================================
+          ps.numpy
+          ps.pandas
+          ps.scipy
+          ps.networkx
+          ps.pillow
+          ps.moderngl
+
+          # ============================================
+          # Academic and research tools (nixpkgs)
+          # ============================================
           ps.arxiv              # >=2.0.0, nixpkgs: 2.3.1
 
-          # LlamaIndex ecosystem (all available in nixpkgs)
-          ps.llama-cloud                             # >=0.1.35, nixpkgs: 0.1.45
-          ps.llama-cloud-services                    # >=0.6.54, nixpkgs: 0.6.79
-          ps.llama-index                             # ==0.14.12
-          ps.llama-index-cli                         # ==0.5.3
-          ps.llama-index-core                        # ==0.14.12
-          ps.llama-index-embeddings-openai           # ==0.5.1
-          ps.llama-index-indices-managed-llama-cloud # ==0.9.4
-          ps.llama-index-instrumentation             # ==0.4.2
-          ps.llama-index-llms-openai                 # ==0.6.12
-          ps.llama-index-readers-file                # ==0.5.6
-          ps.llama-index-readers-llama-parse         # ==0.5.1
-          ps.llama-index-workflows                   # ==2.11.6
-          ps.llama-parse                             # >=0.6.54, nixpkgs: 0.6.79
+          # ============================================
+          # LlamaIndex ecosystem (nixpkgs)
+          # ============================================
+          ps.llama-cloud
+          ps.llama-cloud-services
+          ps.llama-index
+          ps.llama-index-cli
+          ps.llama-index-core
+          ps.llama-index-embeddings-openai
+          ps.llama-index-indices-managed-llama-cloud
+          ps.llama-index-instrumentation
+          ps.llama-index-llms-openai
+          ps.llama-index-readers-file
+          ps.llama-index-readers-llama-parse
+          ps.llama-index-workflows
+          ps.llama-parse
 
-          # Testing
+          # ============================================
+          # ML/AI (nixpkgs)
+          # ============================================
+          ps.datasets
+          ps.huggingface-hub
+          ps.transformers
+          ps.torch
+          ps.torchvision
+          ps.tokenizers
+
+          # ============================================
+          # LangChain (nixpkgs)
+          # ============================================
+          ps.langchain
+          ps.langchain-core
+          ps.langchain-community
+          ps.langchain-openai
+
+          # ============================================
+          # Testing (nixpkgs)
+          # ============================================
           ps.pytest
           ps.pytest-asyncio
         ]);
@@ -167,6 +172,7 @@
           # Build tools
           gcc
           gnumake
+          cmake
           pkg-config
 
           # SSL/TLS
@@ -184,6 +190,11 @@
           # For PDF processing
           poppler-utils
 
+          # For imgui-bundle
+          glfw
+          libGL
+          libGLU
+
           # Git for development
           git
         ];
@@ -200,7 +211,7 @@
 
       in
       {
-        # Development shell with all Python packages from nixpkgs
+        # Development shell with all Python packages from nixpkgs + overlay
         devShells.default = pkgs.mkShell {
           name = "deeptutor-dev";
 
@@ -208,7 +219,7 @@
             pythonWithPackages
             pkgs.nodejs_20
             pkgs.nodePackages.npm
-            pkgs.pre-commit  # Development tool (standalone, not Python package)
+            pkgs.pre-commit
             testScript
             groqTestScript
           ];
@@ -217,7 +228,7 @@
             echo "DeepTutor Development Environment"
             echo "=================================="
             echo ""
-            echo "All Python packages are pre-installed from nixpkgs."
+            echo "All Python packages are pre-installed from nixpkgs + overlay."
             echo ""
             echo "Available commands:"
             echo "  run-tests        - Run all tests"
