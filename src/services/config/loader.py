@@ -196,11 +196,52 @@ def get_agent_params(module_name: str) -> dict:
     return defaults
 
 
+def get_data_dir() -> Path:
+    """
+    Get the data directory path, respecting DEEPTUTOR_DATA_DIR environment variable.
+
+    For containerized deployments, set DEEPTUTOR_DATA_DIR to a writable path.
+    Otherwise, defaults to PROJECT_ROOT/data.
+
+    Returns:
+        Path to the data directory
+    """
+    import os
+
+    data_dir_env = os.environ.get("DEEPTUTOR_DATA_DIR")
+    if data_dir_env:
+        return Path(data_dir_env)
+    return PROJECT_ROOT / "data"
+
+
+def get_user_dir() -> Path:
+    """
+    Get the user data directory path (for logs, sessions, outputs, etc.).
+
+    Returns:
+        Path to the user data directory
+    """
+    return get_data_dir() / "user"
+
+
+def get_knowledge_base_dir() -> Path:
+    """
+    Get the knowledge base directory path.
+
+    Returns:
+        Path to the knowledge bases directory
+    """
+    return get_data_dir() / "knowledge_bases"
+
+
 __all__ = [
     "PROJECT_ROOT",
     "load_config_with_main",
     "get_path_from_config",
     "parse_language",
     "get_agent_params",
+    "get_data_dir",
+    "get_user_dir",
+    "get_knowledge_base_dir",
     "_deep_merge",
 ]

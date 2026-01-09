@@ -22,7 +22,7 @@ import yaml
 project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.services.config import load_config_with_main, parse_language
+from src.services.config import get_user_dir, load_config_with_main, parse_language
 from src.services.llm import get_llm_config
 
 from .analysis_loop import InvestigateAgent, NoteAgent
@@ -75,7 +75,10 @@ class MainSolver:
             # Build config structure expected by ConfigValidator
             self.config = {
                 "system": {
-                    "output_base_dir": paths_config.get("solve_output_dir", "./data/user/solve"),
+                    # Use get_user_dir() which respects DEEPTUTOR_DATA_DIR env var
+                    "output_base_dir": paths_config.get(
+                        "solve_output_dir", str(get_user_dir() / "solve")
+                    ),
                     "save_intermediate_results": solve_config.get(
                         "save_intermediate_results", True
                     ),

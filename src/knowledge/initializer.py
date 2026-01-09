@@ -37,6 +37,7 @@ from src.services.llm import get_llm_config
 load_dotenv(dotenv_path=".env", override=False)
 
 from src.logging import LightRAGLogContext, get_logger
+from src.services.config import get_knowledge_base_dir
 
 logger = get_logger("KnowledgeInit")
 
@@ -51,13 +52,17 @@ class KnowledgeBaseInitializer:
     def __init__(
         self,
         kb_name: str,
-        base_dir="./data/knowledge_bases",
+        base_dir=None,
         api_key: str = None,
         base_url: str = None,
         progress_tracker: ProgressTracker = None,
     ):
         self.kb_name = kb_name
-        self.base_dir = Path(base_dir)
+        # Use get_knowledge_base_dir() which respects DEEPTUTOR_DATA_DIR env var
+        if base_dir is None:
+            self.base_dir = get_knowledge_base_dir()
+        else:
+            self.base_dir = Path(base_dir)
         self.kb_dir = self.base_dir / kb_name
 
         # Directory structure

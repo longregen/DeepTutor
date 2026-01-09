@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 
 from src.logging import get_logger
-from src.services.config import load_config_with_main
+from src.services.config import get_user_dir, load_config_with_main
 
 # Initialize logger for setup operations
 _setup_logger = None
@@ -50,29 +50,12 @@ def init_user_directories(project_root: Path | None = None) -> None:
     └── user_history.json   # User history file
 
     Args:
-        project_root: Project root directory (if None, will try to detect)
+        project_root: Project root directory (deprecated, kept for backwards compatibility)
     """
-    if project_root is None:
-        # Path(__file__) = src/services/setup/init.py
-        # .parent = src/services/setup/
-        # .parent.parent = src/services/
-        # .parent.parent.parent = src/
-        # .parent.parent.parent.parent = DeepTutor/ (project root)
-        project_root = Path(__file__).parent.parent.parent.parent
-
-    # Get user data directory from config
-    try:
-        config = load_config_with_main("solve_config.yaml", project_root)
-        user_data_dir = config.get("paths", {}).get("user_data_dir", "./data/user")
-
-        # Convert relative path to absolute
-        if not Path(user_data_dir).is_absolute():
-            user_data_dir = project_root / user_data_dir
-        else:
-            user_data_dir = Path(user_data_dir)
-    except Exception:
-        # Fallback to default
-        user_data_dir = project_root / "data" / "user"
+    # Use get_user_dir() which respects DEEPTUTOR_DATA_DIR env var
+    # This is critical for containerized deployments where
+    # the source directory is read-only
+    user_data_dir = get_user_dir()
 
     # Required subdirectories (based on actual usage in the codebase)
     required_dirs = [

@@ -18,24 +18,14 @@ if str(_project_root) not in sys.path:
 
 from src.core.llm_factory import llm_complete
 from src.logging import LLMStats, get_logger
-from src.services.config import get_agent_params, load_config_with_main
+from src.services.config import get_agent_params, get_user_dir, load_config_with_main
 from src.services.llm import get_llm_config
 from src.services.prompt import get_prompt_manager
 from src.tools.rag_tool import rag_search
 from src.tools.web_search import web_search
 
-# Initialize logger with config
-try:
-    config = load_config_with_main(
-        "solve_config.yaml", _project_root
-    )  # Use any config to get main.yaml
-    log_dir = config.get("paths", {}).get("user_log_dir") or config.get("logging", {}).get(
-        "log_dir"
-    )
-    logger = get_logger("CoWriter", log_dir=log_dir)
-except Exception:
-    # Fallback to standard logging
-    logger = logging.getLogger(__name__)
+# Initialize logger (respects DEEPTUTOR_DATA_DIR env var)
+logger = get_logger("CoWriter")
 
 # Shared stats tracker for co_writer
 _co_writer_stats: LLMStats | None = None
@@ -63,7 +53,8 @@ def print_stats():
         _co_writer_stats.print_summary()
 
 
-USER_DIR = Path(__file__).parent.parent.parent.parent / "data" / "user" / "co-writer"
+# Use get_user_dir() which respects DEEPTUTOR_DATA_DIR env var
+USER_DIR = get_user_dir() / "co-writer"
 HISTORY_FILE = USER_DIR / "history.json"
 TOOL_CALLS_DIR = USER_DIR / "tool_calls"
 

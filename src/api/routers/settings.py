@@ -11,6 +11,7 @@ from typing import Any, Dict, Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from src.services.config import get_user_dir
 from src.services.embedding import get_embedding_config
 from src.services.llm import get_llm_config
 from src.services.tts import get_tts_config
@@ -187,7 +188,8 @@ ENV_CATEGORIES = {
 }
 
 # Settings file path (for local client/UI prefs not appropriate for main.yaml)
-SETTINGS_FILE = Path(__file__).parent.parent.parent.parent / "data" / "user" / "settings.json"
+# Uses get_user_dir() which respects DEEPTUTOR_DATA_DIR env var
+SETTINGS_FILE = get_user_dir() / "settings.json"
 
 # Default UI settings
 DEFAULT_UI_SETTINGS = {

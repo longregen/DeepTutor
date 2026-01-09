@@ -1,16 +1,11 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
 import { GlobalProvider } from "@/context/GlobalContext";
 import ThemeScript from "@/components/ThemeScript";
 
-// Use Inter font with swap display for better loading
-const font = Inter({
-  subsets: ["latin"],
-  display: "swap",
-  fallback: ["system-ui", "sans-serif"],
-});
+// System font stack (avoids network fetch during build for airgapped/sandboxed builds)
+const fontClassName = "font-sans";
 
 export const metadata: Metadata = {
   title: "DeepTutor Platform",
@@ -27,7 +22,7 @@ export default function RootLayout({
       <head>
         <ThemeScript />
       </head>
-      <body className={font.className}>
+      <body className={fontClassName}>
         <GlobalProvider>
           <div className="flex h-screen bg-slate-50 dark:bg-slate-900 overflow-hidden transition-colors duration-200">
             <Sidebar />

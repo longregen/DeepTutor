@@ -7,12 +7,20 @@ Similar to LLM provider management but for embedding services.
 """
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-USER_DATA_DIR = Path("./data/user")
+
+def _get_user_data_dir() -> Path:
+    """Get user data directory from env var or default."""
+    base = os.environ.get("DEEPTUTOR_DATA_DIR", "./data")
+    return Path(base) / "user"
+
+
+USER_DATA_DIR = _get_user_data_dir()
 PROVIDERS_FILE = USER_DATA_DIR / "embedding_providers.json"
 
 

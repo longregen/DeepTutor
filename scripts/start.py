@@ -28,6 +28,8 @@ load_dotenv()
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+from src.services.config import get_knowledge_base_dir, get_user_dir
+
 from src.agents.question import AgentCoordinator
 from src.agents.solve import MainSolver
 from src.api.utils.history import ActivityType, history_manager
@@ -71,7 +73,8 @@ class AITutorStarter:
 
     def _load_available_kbs(self) -> list:
         """Load available knowledge base list"""
-        kb_base_dir = Path(__file__).parent / "data/knowledge_bases"
+        # Use get_knowledge_base_dir() which respects DEEPTUTOR_DATA_DIR env var
+        kb_base_dir = get_knowledge_base_dir()
         if not kb_base_dir.exists():
             return ["ai_textbook"]  # Default knowledge base
 
@@ -466,10 +469,10 @@ class AITutorStarter:
             if "presets" not in config:
                 config["presets"] = research_config.get("presets", {}).copy()
 
-            # Set output paths
+            # Set output paths (respects DEEPTUTOR_DATA_DIR env var)
             if "system" not in config:
                 config["system"] = {}
-            output_base = project_root / "data" / "user" / "research"
+            output_base = get_user_dir() / "research"
             config["system"]["output_base_dir"] = str(output_base / "cache")
             config["system"]["reports_dir"] = str(output_base / "reports")
 

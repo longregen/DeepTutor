@@ -29,6 +29,7 @@ sys.path.insert(0, str(project_root))
 # Note: AgentCoordinator is imported inside functions to avoid circular import
 from src.agents.question.tools.pdf_parser import parse_pdf_with_mineru
 from src.agents.question.tools.question_extractor import extract_questions_from_paper
+from src.services.config import get_user_dir
 
 # Type alias for WebSocket callback
 WsCallback = Callable[[str, dict[str, Any]], Any]
@@ -144,14 +145,9 @@ async def mimic_exam_questions(
         paper_path = Path(paper_dir)
 
         # Candidate locations to search (including new location)
-        project_root = Path(__file__).parent.parent.parent.parent.parent
+        # Uses get_user_dir() which respects DEEPTUTOR_DATA_DIR env var
         possible_paths = [
-            project_root
-            / "data"
-            / "user"
-            / "question"
-            / "mimic_papers"
-            / paper_dir,  # New primary location
+            get_user_dir() / "question" / "mimic_papers" / paper_dir,  # Primary location
             Path("question_agents/reference_papers") / paper_dir,  # Legacy location
             Path("reference_papers") / paper_dir,
         ]
@@ -218,11 +214,11 @@ async def mimic_exam_questions(
         print("-" * 80)
 
         # Use provided output_dir or default to mimic_papers
-        project_root = Path(__file__).parent.parent.parent.parent.parent
+        # Uses get_user_dir() which respects DEEPTUTOR_DATA_DIR env var
         if output_dir:
             output_base = Path(output_dir)
         else:
-            output_base = project_root / "data" / "user" / "question" / "mimic_papers"
+            output_base = get_user_dir() / "question" / "mimic_papers"
         output_base.mkdir(parents=True, exist_ok=True)
 
         success = parse_pdf_with_mineru(pdf_path=pdf_path, output_base_dir=str(output_base))

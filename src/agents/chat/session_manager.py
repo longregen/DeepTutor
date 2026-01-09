@@ -16,6 +16,8 @@ import time
 from typing import Any
 import uuid
 
+from src.services.config import get_user_dir
+
 
 class SessionManager:
     """
@@ -37,13 +39,11 @@ class SessionManager:
 
         Args:
             base_dir: Base directory for session storage.
-                     Defaults to project_root/data/user
+                     Defaults to user data dir (respects DEEPTUTOR_DATA_DIR env var)
         """
         if base_dir is None:
-            # Current file: src/agents/chat/session_manager.py
-            # Project root: 4 levels up
-            project_root = Path(__file__).resolve().parents[3]
-            base_dir_path = project_root / "data" / "user"
+            # Use get_user_dir() which respects DEEPTUTOR_DATA_DIR env var
+            base_dir_path = get_user_dir()
         else:
             base_dir_path = Path(base_dir)
 

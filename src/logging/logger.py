@@ -148,9 +148,15 @@ class Logger:
         self.logger.propagate = False
 
         # Setup log directory
-        if log_dir is None:
+        # Priority: DEEPTUTOR_DATA_DIR env var > explicit log_dir > default
+        import os
+        base_data_dir = os.environ.get("DEEPTUTOR_DATA_DIR")
+
+        if base_data_dir:
+            # Environment variable takes precedence (for containerized deployments)
+            log_dir = Path(base_data_dir) / "user" / "logs"
+        elif log_dir is None:
             # Default: DeepTutor/data/user/logs/
-            # Use resolve() to get absolute path, ensuring correct project root regardless of working directory
             project_root = Path(__file__).resolve().parent.parent.parent
             log_dir = project_root / "data" / "user" / "logs"
         else:
@@ -611,38 +617,46 @@ def get_logger(
         level: Log level
         console_output: Enable console output
         file_output: Enable file output
-        log_dir: Log directory (if None, will try to load from config/main.yaml)
+        log_dir: Log directory (if None, will try DEEPTUTOR_DATA_DIR env var, then config/main.yaml)
 
     Returns:
         Logger instance
     """
     global _loggers
 
-    # If log_dir not provided, try to load from config
+    # If log_dir not provided, check env var first, then config
     if log_dir is None:
-        try:
-            from src.services.config import get_path_from_config, load_config_with_main
+        import os
 
-            # Use resolve() to get absolute path, ensuring correct project root regardless of working directory
-            project_root = Path(__file__).resolve().parent.parent.parent
-            config = load_config_with_main(
-                "solve_config.yaml", project_root
-            )  # Use any config to get main.yaml
-            log_dir = get_path_from_config(config, "user_log_dir") or config.get("paths", {}).get(
-                "user_log_dir"
-            )
-            if log_dir:
-                # Convert relative path to absolute based on project root
-                log_dir_path = Path(log_dir)
-                if not log_dir_path.is_absolute():
-                    # Remove leading ./ if present
-                    log_dir_str = str(log_dir_path).lstrip("./")
-                    log_dir = str(project_root / log_dir_str)
-                else:
-                    log_dir = str(log_dir_path)
-        except Exception:
-            # Fallback to default
-            pass
+        # Priority 1: DEEPTUTOR_DATA_DIR environment variable (for containerized deployments)
+        base_data_dir = os.environ.get("DEEPTUTOR_DATA_DIR")
+        if base_data_dir:
+            log_dir = str(Path(base_data_dir) / "user" / "logs")
+        else:
+            # Priority 2: try to load from config
+            try:
+                from src.services.config import get_path_from_config, load_config_with_main
+
+                # Use resolve() to get absolute path, ensuring correct project root regardless of working directory
+                project_root = Path(__file__).resolve().parent.parent.parent
+                config = load_config_with_main(
+                    "solve_config.yaml", project_root
+                )  # Use any config to get main.yaml
+                log_dir = get_path_from_config(config, "user_log_dir") or config.get("paths", {}).get(
+                    "user_log_dir"
+                )
+                if log_dir:
+                    # Convert relative path to absolute based on project root
+                    log_dir_path = Path(log_dir)
+                    if not log_dir_path.is_absolute():
+                        # Remove leading ./ if present
+                        log_dir_str = str(log_dir_path).lstrip("./")
+                        log_dir = str(project_root / log_dir_str)
+                    else:
+                        log_dir = str(log_dir_path)
+            except Exception:
+                # Fallback to default
+                pass
 
     if name not in _loggers:
         _loggers[name] = Logger(

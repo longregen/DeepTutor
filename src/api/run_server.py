@@ -34,12 +34,15 @@ if __name__ == "__main__":
 
     backend_port = get_backend_port(project_root)
 
+    # Import get_data_dir for proper data directory resolution
+    from src.services.config import get_data_dir
+
     # Configure reload_excludes to skip directories that shouldn't trigger reloads
     # Use absolute paths to ensure they're properly resolved
     reload_excludes = [
         str(project_root / "venv"),  # Virtual environment
         str(project_root / ".venv"),  # Virtual environment (alternative name)
-        str(project_root / "data"),  # Data directory (includes knowledge_bases, user data, logs)
+        str(get_data_dir()),  # Data directory (respects DEEPTUTOR_DATA_DIR env var)
         str(project_root / "node_modules"),  # Node modules (if any at root)
         str(project_root / "web" / "node_modules"),  # Web node modules
         str(project_root / "web" / ".next"),  # Next.js build

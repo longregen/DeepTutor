@@ -15,7 +15,7 @@ import uuid
 import yaml
 
 from src.logging import get_logger
-from src.services.config import load_config_with_main, parse_language
+from src.services.config import get_user_dir, load_config_with_main, parse_language
 
 from .agents import ChatAgent, InteractiveAgent, LocateAgent, SummaryAgent
 
@@ -108,9 +108,8 @@ class GuideManager:
             if output_dir_from_config:
                 self.output_dir = Path(output_dir_from_config)
             else:
-                # Fallback to default path
-                project_root = Path(__file__).parent.parent.parent.parent
-                self.output_dir = project_root / "data" / "user" / "guide"
+                # Use get_user_dir() which respects DEEPTUTOR_DATA_DIR env var
+                self.output_dir = get_user_dir() / "guide"
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         self.locate_agent = LocateAgent(api_key, base_url, self.language, binding=self.binding)

@@ -3,6 +3,8 @@ import json
 from pathlib import Path
 import time
 
+from src.services.config import get_user_dir
+
 
 class ActivityType(str, Enum):
     SOLVE = "solve"
@@ -17,16 +19,12 @@ class HistoryManager:
         History record manager
 
         Args:
-            base_dir: History record directory. Default fixed to "project root/user",
-                      at the same level as user/question, user/solve, user/research,
-                      does not depend on current working directory, avoids path misalignment
-                      when uvicorn / IDE start differently.
+            base_dir: History record directory. Defaults to user data directory
+                      which respects DEEPTUTOR_DATA_DIR env var.
         """
         if base_dir is None:
-            # Current file: DeepTutor/src/api/utils/history.py
-            # Project root should be three levels up: DeepTutor/
-            project_root = Path(__file__).resolve().parents[3]
-            base_dir_path = project_root / "data" / "user"
+            # Use get_user_dir() which respects DEEPTUTOR_DATA_DIR env var
+            base_dir_path = get_user_dir()
         else:
             base_dir_path = Path(base_dir)
 

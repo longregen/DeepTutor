@@ -24,23 +24,13 @@ if str(_project_root) not in sys.path:
 
 from src.core.llm_factory import llm_complete
 from src.logging import get_logger
-from src.services.config import get_agent_params, load_config_with_main
+from src.services.config import get_agent_params, get_user_dir, load_config_with_main
 from src.services.llm import get_llm_config
 from src.services.prompt import get_prompt_manager
 from src.services.tts import get_tts_config
 
-# Initialize logger with config
-try:
-    config = load_config_with_main(
-        "solve_config.yaml", _project_root
-    )  # Use any config to get main.yaml
-    log_dir = config.get("paths", {}).get("user_log_dir") or config.get("logging", {}).get(
-        "log_dir"
-    )
-    logger = get_logger("Narrator", log_dir=log_dir)
-except Exception:
-    # Fallback to standard logging
-    logger = logging.getLogger(__name__)
+# Initialize logger (respects DEEPTUTOR_DATA_DIR env var)
+logger = get_logger("Narrator")
 
 # Import shared stats from edit_agent
 from .edit_agent import get_stats
@@ -49,7 +39,8 @@ from .edit_agent import get_stats
 # Notes:
 # - Consistent with EditAgent's history records, both use user/co-writer as root directory
 # - Audio files are stored separately in audio subdirectory for static access via /api/outputs
-USER_DIR = Path(__file__).parent.parent.parent.parent / "data" / "user" / "co-writer" / "audio"
+# - Uses get_user_dir() which respects DEEPTUTOR_DATA_DIR env var
+USER_DIR = get_user_dir() / "co-writer" / "audio"
 
 
 def ensure_dirs():

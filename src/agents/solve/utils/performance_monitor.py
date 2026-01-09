@@ -94,14 +94,15 @@ class PerformanceMonitor:
 
         Args:
             enabled: Whether to enable monitoring
-            save_dir: Save directory (None uses ./data/user/performance)
+            save_dir: Save directory (None uses user/performance, respects DEEPTUTOR_DATA_DIR)
         """
         self.enabled = enabled
 
         if save_dir is None:
-            # Default to data/user/performance (relative to project root)
-            project_root = Path(__file__).parent.parent.parent.parent.parent
-            self.save_dir = project_root / "data" / "user" / "performance"
+            # Use get_user_dir() which respects DEEPTUTOR_DATA_DIR env var
+            from src.services.config import get_user_dir
+
+            self.save_dir = get_user_dir() / "performance"
         else:
             self.save_dir = Path(save_dir)
 

@@ -11,6 +11,8 @@ import uuid
 
 from pydantic import BaseModel
 
+from src.services.config import get_user_dir
+
 
 class RecordType(str, Enum):
     """Record type"""
@@ -55,13 +57,12 @@ class NotebookManager:
         Initialize notebook manager
 
         Args:
-            base_dir: Notebook storage directory, defaults to project root/user/notebook
+            base_dir: Notebook storage directory, defaults to user/notebook
+                     (respects DEEPTUTOR_DATA_DIR env var)
         """
         if base_dir is None:
-            # Current file: DeepTutor/src/api/utils/notebook_manager.py
-            # Project root should be three levels up: DeepTutor/
-            project_root = Path(__file__).resolve().parents[3]
-            base_dir_path = project_root / "data" / "user" / "notebook"
+            # Use get_user_dir() which respects DEEPTUTOR_DATA_DIR env var
+            base_dir_path = get_user_dir() / "notebook"
         else:
             base_dir_path = Path(base_dir)
 

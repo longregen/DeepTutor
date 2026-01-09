@@ -11,12 +11,18 @@ import json
 from pathlib import Path
 import shutil
 
+from src.services.config import get_knowledge_base_dir
+
 
 class KnowledgeBaseManager:
     """Manager for knowledge bases"""
 
-    def __init__(self, base_dir="./data/knowledge_bases"):
-        self.base_dir = Path(base_dir)
+    def __init__(self, base_dir=None):
+        # Use get_knowledge_base_dir() which respects DEEPTUTOR_DATA_DIR env var
+        if base_dir is None:
+            self.base_dir = get_knowledge_base_dir()
+        else:
+            self.base_dir = Path(base_dir)
         self.base_dir.mkdir(parents=True, exist_ok=True)
 
         # Config file to track knowledge bases

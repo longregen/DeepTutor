@@ -6,11 +6,13 @@ Knowledge Base Path Configuration Module - Unified management of all paths
 import os
 from pathlib import Path
 
+from src.services.config import get_knowledge_base_dir
+
 # Project root directory (DeepTutor/)
 PROJECT_ROOT = Path(__file__).parent.parent.parent.resolve()
 
-# Knowledge base base directory
-KNOWLEDGE_BASES_DIR = PROJECT_ROOT / "data" / "knowledge_bases"
+# Knowledge base base directory (respects DEEPTUTOR_DATA_DIR env var)
+KNOWLEDGE_BASES_DIR = get_knowledge_base_dir()
 
 # raganything module path
 RAGANYTHING_PATH = PROJECT_ROOT.parent / "raganything" / "RAG-Anything"

@@ -34,18 +34,16 @@ from src.knowledge.progress_tracker import ProgressStage, ProgressTracker
 _project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(_project_root))
 from src.logging import get_logger
-from src.services.config import load_config_with_main
+from src.services.config import get_knowledge_base_dir, load_config_with_main
 from src.services.llm import get_llm_config
 
-# Initialize logger with config
-project_root = Path(__file__).parent.parent.parent.parent
-config = load_config_with_main("solve_config.yaml", project_root)  # Use any config to get main.yaml
-log_dir = config.get("paths", {}).get("user_log_dir") or config.get("logging", {}).get("log_dir")
-logger = get_logger("Knowledge", level="INFO", log_dir=log_dir)
+# Initialize logger (respects DEEPTUTOR_DATA_DIR env var)
+logger = get_logger("Knowledge", level="INFO")
 
 router = APIRouter()
 
-_kb_base_dir = _project_root / "data" / "knowledge_bases"
+# Use get_knowledge_base_dir() which respects DEEPTUTOR_DATA_DIR env var
+_kb_base_dir = get_knowledge_base_dir()
 
 # Lazy initialization
 kb_manager = None

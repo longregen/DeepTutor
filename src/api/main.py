@@ -23,6 +23,7 @@ from src.api.routers import (
     system,
 )
 from src.logging import get_logger
+from src.services.config import get_data_dir, get_user_dir
 
 logger = get_logger("API")
 
@@ -54,15 +55,16 @@ app.add_middleware(
 # Mount user directory as static root for generated artifacts
 # This allows frontend to access generated artifacts (images, PDFs, etc.)
 # URL: /api/outputs/solve/solve_xxx/artifacts/image.png
-# Physical Path: DeepTutor/data/user/solve/solve_xxx/artifacts/image.png
+# Physical Path: data/user/solve/solve_xxx/artifacts/image.png
+# Uses DEEPTUTOR_DATA_DIR env var if set (for containerized deployments)
 project_root = Path(__file__).parent.parent.parent
-user_dir = project_root / "data" / "user"
+user_dir = get_user_dir()
 
 # Initialize user directories on startup
 try:
     from src.services.setup import init_user_directories
 
-    init_user_directories(project_root)
+    init_user_directories()
 except Exception:
     # Fallback: just create the main directory if it doesn't exist
     if not user_dir.exists():

@@ -19,19 +19,15 @@ project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from src.logging import get_logger
-from src.services.config import load_config_with_main
+from src.services.config import get_user_dir, load_config_with_main
 
-# Setup module logger with unified logging system (from config)
-project_root = Path(__file__).parent.parent.parent.parent
-config = load_config_with_main("question_config.yaml", project_root)
-log_dir = config.get("paths", {}).get("user_log_dir") or config.get("logging", {}).get("log_dir")
-logger = get_logger("QuestionAPI", log_dir=log_dir)
+# Setup module logger (respects DEEPTUTOR_DATA_DIR env var)
+logger = get_logger("QuestionAPI")
 
 router = APIRouter()
 
-# Output directory for mimic mode - use data/user/question
-PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
-MIMIC_OUTPUT_DIR = PROJECT_ROOT / "data" / "user" / "question" / "mimic_papers"
+# Output directory for mimic mode (respects DEEPTUTOR_DATA_DIR env var)
+MIMIC_OUTPUT_DIR = get_user_dir() / "question" / "mimic_papers"
 
 
 @router.websocket("/mimic")

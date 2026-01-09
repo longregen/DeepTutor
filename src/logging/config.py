@@ -40,9 +40,10 @@ class LoggingConfig:
 
 
 def get_default_log_dir() -> Path:
-    """Get the default log directory."""
-    project_root = Path(__file__).resolve().parent.parent.parent
-    return project_root / "data" / "user" / "logs"
+    """Get the default log directory (respects DEEPTUTOR_DATA_DIR env var)."""
+    from src.services.config import get_user_dir
+
+    return get_user_dir() / "logs"
 
 
 def load_logging_config() -> LoggingConfig:
