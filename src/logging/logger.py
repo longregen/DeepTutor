@@ -151,8 +151,13 @@ class Logger:
         if log_dir is None:
             # Default: DeepTutor/data/user/logs/
             # Use resolve() to get absolute path, ensuring correct project root regardless of working directory
-            project_root = Path(__file__).resolve().parent.parent.parent
-            log_dir = project_root / "data" / "user" / "logs"
+            import os
+            base_data_dir = os.environ.get("DEEPTUTOR_DATA_DIR")
+            if base_data_dir:
+                log_dir = Path(base_data_dir) / "user" / "logs"
+            else:
+                project_root = Path(__file__).resolve().parent.parent.parent
+                log_dir = project_root / "data" / "user" / "logs"
         else:
             log_dir = Path(log_dir)
             # If relative path, resolve it relative to project root

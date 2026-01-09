@@ -1,0 +1,381 @@
+# NixOS module for DeepTutor
+# Usage in your configuration.nix:
+#   imports = [ deeptutor.nixosModules.default ];
+#   services.deeptutor.enable = true;
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+with lib; let
+  cfg = config.services.deeptutor;
+
+  # Import Python packages
+  pythonPackagesOverlay = import ../python-packages/overlay.nix {prev = pkgs;};
+  pythonPackagesList = import ../python-packages/packages.nix;
+
+  python = pkgs.python311.override {
+    packageOverrides = pythonPackagesOverlay;
+  };
+
+  pythonEnv = python.withPackages pythonPackagesList;
+
+  # Environment file generation
+  envFile = pkgs.writeText "deeptutor.env" ''
+    # Server Configuration
+    BACKEND_PORT=${toString cfg.backend.port}
+    FRONTEND_PORT=${toString cfg.frontend.port}
+    DEEPTUTOR_DATA_DIR=${cfg.dataDir}
+
+    # LLM Configuration
+    LLM_BINDING=${cfg.llm.binding}
+    LLM_MODEL=${cfg.llm.model}
+    LLM_HOST=${cfg.llm.host}
+
+    # Embedding Configuration
+    EMBEDDING_BINDING=${cfg.embedding.binding}
+    EMBEDDING_MODEL=${cfg.embedding.model}
+    EMBEDDING_DIMENSION=${toString cfg.embedding.dimension}
+    EMBEDDING_HOST=${cfg.embedding.host}
+
+    # Search Configuration
+    SEARCH_PROVIDER=${cfg.search.provider}
+
+    # Logging
+    RAG_TOOL_MODULE_LOG_LEVEL=${cfg.logLevel}
+
+    ${optionalString (cfg.frontend.apiBaseExternal != null) ''
+      NEXT_PUBLIC_API_BASE_EXTERNAL=${cfg.frontend.apiBaseExternal}
+    ''}
+  '';
+
+  # Secrets are loaded separately via EnvironmentFile
+in {
+  options.services.deeptutor = {
+    enable = mkEnableOption "DeepTutor AI-powered learning assistant";
+
+    package = mkOption {
+      type = types.package;
+      default = pkgs.deeptutor or null;
+      defaultText = literalExpression "pkgs.deeptutor";
+      description = "The DeepTutor package to use (or null to use source directory)";
+    };
+
+    sourceDir = mkOption {
+      type = types.path;
+      default = ../..;
+      description = "Path to DeepTutor source directory";
+    };
+
+    dataDir = mkOption {
+      type = types.path;
+      default = "/var/lib/deeptutor";
+      description = "Directory for DeepTutor data (knowledge bases, logs, etc.)";
+    };
+
+    user = mkOption {
+      type = types.str;
+      default = "deeptutor";
+      description = "User under which DeepTutor runs";
+    };
+
+    group = mkOption {
+      type = types.str;
+      default = "deeptutor";
+      description = "Group under which DeepTutor runs";
+    };
+
+    # Backend configuration
+    backend = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Enable the FastAPI backend service";
+      };
+
+      port = mkOption {
+        type = types.port;
+        default = 8001;
+        description = "Port for the backend API";
+      };
+
+      host = mkOption {
+        type = types.str;
+        default = "127.0.0.1";
+        description = "Host to bind the backend to";
+      };
+
+      workers = mkOption {
+        type = types.int;
+        default = 1;
+        description = "Number of uvicorn workers";
+      };
+    };
+
+    # Frontend configuration
+    frontend = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Enable the Next.js frontend service";
+      };
+
+      port = mkOption {
+        type = types.port;
+        default = 3782;
+        description = "Port for the frontend";
+      };
+
+      host = mkOption {
+        type = types.str;
+        default = "127.0.0.1";
+        description = "Host to bind the frontend to";
+      };
+
+      apiBaseExternal = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        example = "https://api.example.com:8001";
+        description = "External API URL for remote/cloud deployments";
+      };
+    };
+
+    # LLM configuration
+    llm = {
+      binding = mkOption {
+        type = types.enum ["openai" "azure_openai" "ollama" "lollms"];
+        default = "openai";
+        description = "LLM service provider type";
+      };
+
+      model = mkOption {
+        type = types.str;
+        default = "";
+        example = "gpt-4o";
+        description = "LLM model name";
+      };
+
+      host = mkOption {
+        type = types.str;
+        default = "";
+        example = "https://api.openai.com/v1";
+        description = "LLM API endpoint URL";
+      };
+
+      apiKeyFile = mkOption {
+        type = types.nullOr types.path;
+        default = null;
+        example = "/run/secrets/deeptutor-llm-api-key";
+        description = "File containing the LLM API key";
+      };
+    };
+
+    # Embedding configuration
+    embedding = {
+      binding = mkOption {
+        type = types.enum ["openai" "azure_openai" "ollama" "lollms"];
+        default = "openai";
+        description = "Embedding service provider type";
+      };
+
+      model = mkOption {
+        type = types.str;
+        default = "text-embedding-3-large";
+        description = "Embedding model name";
+      };
+
+      dimension = mkOption {
+        type = types.int;
+        default = 3072;
+        description = "Embedding vector dimension";
+      };
+
+      host = mkOption {
+        type = types.str;
+        default = "";
+        description = "Embedding API endpoint URL";
+      };
+
+      apiKeyFile = mkOption {
+        type = types.nullOr types.path;
+        default = null;
+        example = "/run/secrets/deeptutor-embedding-api-key";
+        description = "File containing the embedding API key";
+      };
+    };
+
+    # Search configuration
+    search = {
+      provider = mkOption {
+        type = types.enum ["perplexity" "baidu"];
+        default = "perplexity";
+        description = "Web search provider";
+      };
+
+      apiKeyFile = mkOption {
+        type = types.nullOr types.path;
+        default = null;
+        description = "File containing the search API key";
+      };
+    };
+
+    # Logging
+    logLevel = mkOption {
+      type = types.enum ["DEBUG" "INFO" "WARNING" "ERROR"];
+      default = "INFO";
+      description = "Log level for RAG tool module";
+    };
+
+    # Firewall
+    openFirewall = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Open firewall ports for DeepTutor services";
+    };
+
+    # Additional environment variables
+    extraEnv = mkOption {
+      type = types.attrsOf types.str;
+      default = {};
+      example = {
+        DISABLE_SSL_VERIFY = "false";
+      };
+      description = "Additional environment variables";
+    };
+
+    # Secrets file (for API keys)
+    secretsFile = mkOption {
+      type = types.nullOr types.path;
+      default = null;
+      example = "/run/secrets/deeptutor-secrets";
+      description = ''
+        File containing secret environment variables (API keys).
+        Format: KEY=value, one per line.
+        Should contain: LLM_API_KEY, EMBEDDING_API_KEY, etc.
+      '';
+    };
+  };
+
+  config = mkIf cfg.enable {
+    # Create user and group
+    users.users.${cfg.user} = {
+      isSystemUser = true;
+      group = cfg.group;
+      home = cfg.dataDir;
+      createHome = true;
+      description = "DeepTutor service user";
+    };
+
+    users.groups.${cfg.group} = {};
+
+    # Create data directory
+    systemd.tmpfiles.rules = [
+      "d ${cfg.dataDir} 0750 ${cfg.user} ${cfg.group} -"
+      "d ${cfg.dataDir}/user 0750 ${cfg.user} ${cfg.group} -"
+      "d ${cfg.dataDir}/user/logs 0750 ${cfg.user} ${cfg.group} -"
+      "d ${cfg.dataDir}/knowledge_bases 0750 ${cfg.user} ${cfg.group} -"
+    ];
+
+    # Backend systemd service
+    systemd.services.deeptutor-backend = mkIf cfg.backend.enable {
+      description = "DeepTutor Backend API";
+      after = ["network.target"];
+      wantedBy = ["multi-user.target"];
+
+      environment =
+        {
+          PYTHONPATH = "${cfg.sourceDir}";
+          DEEPTUTOR_DATA_DIR = cfg.dataDir;
+          BACKEND_PORT = toString cfg.backend.port;
+          BACKEND_HOST = cfg.backend.host;
+        }
+        // cfg.extraEnv;
+
+      serviceConfig = {
+        Type = "simple";
+        User = cfg.user;
+        Group = cfg.group;
+        WorkingDirectory = cfg.sourceDir;
+        ExecStart = ''
+          ${pythonEnv}/bin/uvicorn src.api.main:app \
+            --host ${cfg.backend.host} \
+            --port ${toString cfg.backend.port} \
+            --workers ${toString cfg.backend.workers}
+        '';
+        Restart = "on-failure";
+        RestartSec = 5;
+
+        # Security hardening
+        NoNewPrivileges = true;
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        PrivateTmp = true;
+        ReadWritePaths = [cfg.dataDir];
+        ReadOnlyPaths = [cfg.sourceDir];
+
+        # Environment files
+        EnvironmentFile = [
+          envFile
+        ] ++ optional (cfg.secretsFile != null) cfg.secretsFile;
+      };
+    };
+
+    # Frontend systemd service
+    systemd.services.deeptutor-frontend = mkIf cfg.frontend.enable {
+      description = "DeepTutor Frontend";
+      after = ["network.target" "deeptutor-backend.service"];
+      wants = ["deeptutor-backend.service"];
+      wantedBy = ["multi-user.target"];
+
+      environment =
+        {
+          PORT = toString cfg.frontend.port;
+          HOST = cfg.frontend.host;
+          NEXT_PUBLIC_API_BASE = "http://${cfg.backend.host}:${toString cfg.backend.port}";
+          NODE_ENV = "production";
+        }
+        // cfg.extraEnv;
+
+      serviceConfig = {
+        Type = "simple";
+        User = cfg.user;
+        Group = cfg.group;
+        WorkingDirectory = "${cfg.sourceDir}/web";
+        ExecStartPre = "${pkgs.nodejs_20}/bin/npm install --production";
+        ExecStart = "${pkgs.nodejs_20}/bin/npm run start -- -p ${toString cfg.frontend.port} -H ${cfg.frontend.host}";
+        Restart = "on-failure";
+        RestartSec = 5;
+
+        # Security hardening
+        NoNewPrivileges = true;
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        PrivateTmp = true;
+        ReadWritePaths = [
+          cfg.dataDir
+          "${cfg.sourceDir}/web/node_modules"
+          "${cfg.sourceDir}/web/.next"
+        ];
+
+        # Environment files
+        EnvironmentFile = optional (cfg.secretsFile != null) cfg.secretsFile;
+      };
+    };
+
+    # Firewall configuration
+    networking.firewall = mkIf cfg.openFirewall {
+      allowedTCPPorts =
+        (optional cfg.backend.enable cfg.backend.port)
+        ++ (optional cfg.frontend.enable cfg.frontend.port);
+    };
+
+    # Assertions
+    assertions = [
+      {
+        assertion = cfg.backend.enable || cfg.frontend.enable;
+        message = "At least one of services.deeptutor.backend.enable or services.deeptutor.frontend.enable must be true";
+      }
+    ];
+  };
+}
