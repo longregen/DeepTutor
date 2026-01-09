@@ -29,9 +29,7 @@
                   openai
                 ];
 
-                # Skip tests as they require API keys
                 doCheck = false;
-
                 pythonImportsCheck = [ "perplexityai" ];
 
                 meta = with prev.lib; {
@@ -62,9 +60,7 @@
                   pydantic
                 ];
 
-                # Skip tests
                 doCheck = false;
-
                 pythonImportsCheck = [ "lightrag" ];
 
                 meta = with prev.lib; {
@@ -94,9 +90,7 @@
                   pillow
                 ];
 
-                # Skip tests
                 doCheck = false;
-
                 pythonImportsCheck = [ "raganything" ];
 
                 meta = with prev.lib; {
@@ -115,71 +109,58 @@
           overlays = [ pythonOverlay ];
         };
 
-        # Python with packages from nixpkgs where available
-        python = pkgs.python311;
-        pythonPackages = pkgs.python311Packages;
-
-        # All Python packages available from nixpkgs for DeepTutor
-        # Packages marked with (pip) need to be installed via pip as they are not in nixpkgs
-        nixPythonPackages = with pythonPackages; [
+        # Python with all packages (nixpkgs + overlay)
+        pythonWithPackages = pkgs.python311.withPackages (ps: [
           # Core dependencies
-          python-dotenv      # >=1.0.0, nixpkgs: 1.2.1
-          pyyaml             # >=6.0, nixpkgs: 6.0.3
-          tiktoken           # >=0.5.0, nixpkgs: 0.12.0
+          ps.python-dotenv      # >=1.0.0, nixpkgs: 1.2.1
+          ps.pyyaml             # >=6.0, nixpkgs: 6.0.3
+          ps.tiktoken           # >=0.5.0, nixpkgs: 0.12.0
 
           # HTTP and API clients
-          requests           # >=2.32.2, nixpkgs: 2.32.5
-          openai             # >=1.30.0, nixpkgs: 2.11.0
-          dashscope          # >=1.14.0, nixpkgs: 1.25.5
-          aiohttp            # >=3.9.4, nixpkgs: 3.13.2
-          httpx              # >=0.27.0, nixpkgs: 0.28.1
-          urllib3            # >=2.2.1, nixpkgs: 2.6.0
-          # perplexityai     # (pip) not in nixpkgs
+          ps.requests           # >=2.32.2, nixpkgs: 2.32.5
+          ps.openai             # >=1.30.0, nixpkgs: 2.11.0
+          ps.dashscope          # >=1.14.0, nixpkgs: 1.25.5
+          ps.aiohttp            # >=3.9.4, nixpkgs: 3.13.2
+          ps.httpx              # >=0.27.0, nixpkgs: 0.28.1
+          ps.urllib3            # >=2.2.1, nixpkgs: 2.6.0
+          ps.perplexityai       # >=0.1.0 (from overlay)
 
           # Async support
-          nest-asyncio       # >=1.5.8, nixpkgs: 1.6.0
+          ps.nest-asyncio       # >=1.5.8, nixpkgs: 1.6.0
 
           # Web framework and server
-          fastapi            # >=0.100.0, nixpkgs: 0.121.1
-          uvicorn            # >=0.24.0, nixpkgs: 0.38.0
-          websockets         # >=12.0, nixpkgs: 15.0.1
-          python-multipart   # >=0.0.6, nixpkgs: 0.0.20
-          pydantic           # >=2.0.0, nixpkgs: 2.12.4
+          ps.fastapi            # >=0.100.0, nixpkgs: 0.121.1
+          ps.uvicorn            # >=0.24.0, nixpkgs: 0.38.0
+          ps.websockets         # >=12.0, nixpkgs: 15.0.1
+          ps.python-multipart   # >=0.0.6, nixpkgs: 0.0.20
+          ps.pydantic           # >=2.0.0, nixpkgs: 2.12.4
 
-          # RAG and knowledge base
-          # lightrag-hku     # (pip) not in nixpkgs
-          # raganything      # (pip) not in nixpkgs
+          # RAG and knowledge base (from overlay)
+          ps.lightrag-hku       # >=1.0.0 (from overlay)
+          ps.raganything        # >=0.1.0 (from overlay)
 
           # Academic and research tools
-          arxiv              # >=2.0.0, nixpkgs: 2.3.1
-
-          # Development tools
-          pre-commit         # >=3.0.0, nixpkgs: 4.5.1
+          ps.arxiv              # >=2.0.0, nixpkgs: 2.3.1
 
           # LlamaIndex ecosystem (all available in nixpkgs)
-          llama-cloud                           # ==0.1.45 (nixpkgs newer than required 0.1.35)
-          llama-cloud-services                  # ==0.6.79 (nixpkgs newer than required 0.6.54)
-          llama-index                           # ==0.14.12
-          llama-index-cli                       # ==0.5.3
-          llama-index-core                      # ==0.14.12
-          llama-index-embeddings-openai         # ==0.5.1
-          llama-index-indices-managed-llama-cloud # ==0.9.4
-          llama-index-instrumentation           # ==0.4.2
-          llama-index-llms-openai               # ==0.6.12
-          llama-index-readers-file              # ==0.5.6
-          llama-index-readers-llama-parse       # ==0.5.1
-          llama-index-workflows                 # ==2.11.6
-          llama-parse                           # ==0.6.79 (nixpkgs newer than required 0.6.54)
+          ps.llama-cloud                             # >=0.1.35, nixpkgs: 0.1.45
+          ps.llama-cloud-services                    # >=0.6.54, nixpkgs: 0.6.79
+          ps.llama-index                             # ==0.14.12
+          ps.llama-index-cli                         # ==0.5.3
+          ps.llama-index-core                        # ==0.14.12
+          ps.llama-index-embeddings-openai           # ==0.5.1
+          ps.llama-index-indices-managed-llama-cloud # ==0.9.4
+          ps.llama-index-instrumentation             # ==0.4.2
+          ps.llama-index-llms-openai                 # ==0.6.12
+          ps.llama-index-readers-file                # ==0.5.6
+          ps.llama-index-readers-llama-parse         # ==0.5.1
+          ps.llama-index-workflows                   # ==2.11.6
+          ps.llama-parse                             # >=0.6.54, nixpkgs: 0.6.79
 
-          # Build/dev tools
-          pip
-          setuptools
-          wheel
-          virtualenv
-        ];
-
-        # Python with all nixpkgs packages
-        pythonWithPackages = python.withPackages (ps: nixPythonPackages);
+          # Testing
+          ps.pytest
+          ps.pytest-asyncio
+        ]);
 
         # System dependencies needed for Python packages
         systemDeps = with pkgs; [
@@ -207,13 +188,6 @@
           git
         ];
 
-        # Create a shell script to install pip-only dependencies
-        installPipDeps = pkgs.writeShellScriptBin "install-pip-deps" ''
-          echo "Installing packages not available in nixpkgs..."
-          pip install --user perplexityai>=0.1.0 lightrag-hku>=1.0.0 raganything>=0.1.0
-          echo "Done! Pip-only dependencies installed."
-        '';
-
         # Script to run tests
         testScript = pkgs.writeShellScriptBin "run-tests" ''
           PYTHONPATH="$PWD:$PYTHONPATH" pytest tests/ -v --tb=short "$@"
@@ -234,7 +208,7 @@
             pythonWithPackages
             pkgs.nodejs_20
             pkgs.nodePackages.npm
-            installPipDeps
+            pkgs.pre-commit  # Development tool (standalone, not Python package)
             testScript
             groqTestScript
           ];
@@ -243,10 +217,9 @@
             echo "DeepTutor Development Environment"
             echo "=================================="
             echo ""
-            echo "Python packages from nixpkgs are pre-installed."
+            echo "All Python packages are pre-installed from nixpkgs."
             echo ""
             echo "Available commands:"
-            echo "  install-pip-deps - Install packages not in nixpkgs (perplexityai, lightrag-hku, raganything)"
             echo "  run-tests        - Run all tests"
             echo "  test-groq        - Run Groq integration test"
             echo ""
@@ -256,10 +229,6 @@
 
             # Set PYTHONPATH
             export PYTHONPATH="$PWD:$PYTHONPATH"
-
-            # Add user pip packages to path
-            export PATH="$HOME/.local/bin:$PATH"
-            export PYTHONPATH="$HOME/.local/lib/python3.11/site-packages:$PYTHONPATH"
           '';
 
           # Environment variables
