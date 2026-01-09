@@ -27,6 +27,11 @@
   neo4j,
   pymongo,
   redis,
+  # Additional missing dependencies
+  configparser,
+  future,
+  pyuca,
+  xlsxwriter,
 }:
 
 buildPythonPackage rec {
@@ -35,8 +40,9 @@ buildPythonPackage rec {
   pyproject = true;
 
   src = fetchPypi {
-    inherit pname version;
-    hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    pname = "lightrag_hku";
+    inherit version;
+    hash = "sha256-OB3bg5qxj3kl9HscJ1JbjW0QfAAm+/0sPT+g1x/sZ08=";
   };
 
   build-system = [ setuptools ];
@@ -65,9 +71,12 @@ buildPythonPackage rec {
     neo4j
     pymongo
     redis
+    # Additional dependencies
+    configparser
+    future
+    pyuca
+    xlsxwriter
   ];
-
-  doCheck = false;
 
   pythonImportsCheck = [ "lightrag" ];
 

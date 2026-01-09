@@ -13,14 +13,12 @@ buildPythonPackage rec {
 
   src = fetchPypi {
     inherit pname version;
-    hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    hash = "sha256-MiysDB3F1Byez3gr2ZkbeWZoXe46ALyHNjE5HtlJUTo=";
   };
 
   build-system = [ setuptools ];
 
   dependencies = [ numpy ];
-
-  doCheck = false;
 
   pythonImportsCheck = [ "pgvector" ];
 

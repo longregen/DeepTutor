@@ -4,8 +4,8 @@
   fetchPypi,
   setuptools,
   pip,
+  ascii-colors,
 }:
-
 buildPythonPackage rec {
   pname = "pipmaster";
   version = "0.5.0";
@@ -13,21 +13,29 @@ buildPythonPackage rec {
 
   src = fetchPypi {
     inherit pname version;
-    hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    hash = "sha256-WcrFYyzqJis2uAWAlTRekFUs0seueO+RuG3e6FrNBkg=";
   };
 
-  build-system = [ setuptools ];
+  build-system = [setuptools];
 
-  dependencies = [ pip ];
+  dependencies = [
+    pip
+    setuptools
+    ascii-colors
+  ];
+
+  postPatch = ''
+    touch requirements.txt
+  '';
 
   doCheck = false;
 
-  pythonImportsCheck = [ "pipmaster" ];
+  pythonImportsCheck = ["pipmaster"];
 
   meta = with lib; {
     description = "A Python package manager helper";
     homepage = "https://github.com/ParisNeo/pipmaster";
     license = licenses.asl20;
-    maintainers = [ ];
+    maintainers = [];
   };
 }

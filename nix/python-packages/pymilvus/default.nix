@@ -9,6 +9,8 @@
   numpy,
   ujson,
   setuptools-scm,
+  gitpython,
+  python-dotenv,
 }:
 
 buildPythonPackage rec {
@@ -18,12 +20,13 @@ buildPythonPackage rec {
 
   src = fetchPypi {
     inherit pname version;
-    hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    hash = "sha256-tIAsyVTejy1Hv41iMOkhllFNy4o3JrpgmNwnkJ1LyOM=";
   };
 
   build-system = [
     setuptools
     setuptools-scm
+    gitpython
   ];
 
   dependencies = [
@@ -32,6 +35,7 @@ buildPythonPackage rec {
     pandas
     numpy
     ujson
+    python-dotenv
   ];
 
   doCheck = false;

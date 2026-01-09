@@ -1,7 +1,7 @@
 {
   lib,
   buildPythonPackage,
-  fetchPypi,
+  fetchurl,
   setuptools,
   pydantic,
   pillow,
@@ -16,19 +16,17 @@
   transformers,
   huggingface-hub,
 }:
-
 buildPythonPackage rec {
   pname = "mineru";
-  version = "1.3.11";
-  pyproject = true;
+  version = "2.7.1";
+  format = "wheel";
 
-  src = fetchPypi {
-    pname = "MinerU";
-    inherit version;
-    hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  src = fetchurl {
+    url = "https://files.pythonhosted.org/packages/36/fd/d94ab07cbcfabae65a306a6d704214ec6024f443d8119e24234f1b3fa3ba/mineru-2.7.1-py3-none-any.whl";
+    hash = "sha256-PBRBSfJ0mnm+JAgzw5Ihbd1pwVFt4WKynbrdvAzjj3M=";
   };
 
-  build-system = [ setuptools ];
+  build-system = [setuptools];
 
   dependencies = [
     pydantic
@@ -45,14 +43,12 @@ buildPythonPackage rec {
     huggingface-hub
   ];
 
-  doCheck = false;
-
-  pythonImportsCheck = [ "magic_pdf" ];
+  pythonImportsCheck = ["mineru"];
 
   meta = with lib; {
     description = "MinerU - High quality data extraction from PDFs";
     homepage = "https://github.com/opendatalab/MinerU";
     license = licenses.asl20;
-    maintainers = [ ];
+    maintainers = [];
   };
 }

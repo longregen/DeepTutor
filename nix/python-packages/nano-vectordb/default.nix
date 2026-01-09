@@ -8,14 +8,19 @@
 
 buildPythonPackage rec {
   pname = "nano-vectordb";
-  version = "0.0.6";
+  version = "0.0.4.3";
   pyproject = true;
 
   src = fetchPypi {
     pname = "nano_vectordb";
     inherit version;
-    hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    hash = "sha256-PRMHRHbytznlEmGXTtRKpGdyVXmWYhlzTANQLJKe07U=";
   };
+
+  postPatch = ''
+    # Create missing requirements.txt that setup.py expects
+    echo "numpy" > requirements.txt
+  '';
 
   build-system = [ setuptools ];
 

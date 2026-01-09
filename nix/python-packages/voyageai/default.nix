@@ -2,11 +2,16 @@
   lib,
   buildPythonPackage,
   fetchPypi,
-  setuptools,
+  poetry-core,
   httpx,
   pydantic,
+  requests,
   tenacity,
   tokenizers,
+  aiohttp,
+  aiolimiter,
+  numpy,
+  pillow,
 }:
 
 buildPythonPackage rec {
@@ -16,19 +21,22 @@ buildPythonPackage rec {
 
   src = fetchPypi {
     inherit pname version;
-    hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    hash = "sha256-vRtS0mF52RhTy9Kg5S3JXLDVJnYMbIMJWeAetf+eqhI=";
   };
 
-  build-system = [ setuptools ];
+  build-system = [ poetry-core ];
 
   dependencies = [
     httpx
     pydantic
+    requests
     tenacity
     tokenizers
+    aiohttp
+    aiolimiter
+    numpy
+    pillow
   ];
-
-  doCheck = false;
 
   pythonImportsCheck = [ "voyageai" ];
 
