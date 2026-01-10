@@ -1,25 +1,10 @@
 // API configuration and utility functions
 
 // Get API base URL from environment variable
-// This is automatically set by start_web.py based on config/main.yaml
-// The .env.local file is auto-generated on startup with the correct backend port
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE ||
-  (() => {
-    if (typeof window !== "undefined") {
-      console.error("NEXT_PUBLIC_API_BASE is not set.");
-      console.error(
-        "Please configure server ports in config/main.yaml and restart the application using: python scripts/start_web.py",
-      );
-      console.error(
-        "The .env.local file will be automatically generated with the correct backend port.",
-      );
-    }
-    // No fallback - port must be configured in config/main.yaml
-    throw new Error(
-      "NEXT_PUBLIC_API_BASE is not configured. Please set server ports in config/main.yaml and restart.",
-    );
-  })();
+// - Empty string "" means same-origin (API at /api on same domain)
+// - Full URL like "http://localhost:8001" for cross-origin development
+// - Set via NEXT_PUBLIC_API_BASE at build time
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE ?? "";
 
 /**
  * Construct a full API URL from a path

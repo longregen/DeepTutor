@@ -25,38 +25,29 @@ with lib; let
   frontendPackage = import ../frontend.nix {
     inherit pkgs;
     src = "${cfg.sourceDir}/web";
-    apiBase = "http://${cfg.backend.host}:${toString cfg.backend.port}";
-    apiBaseExternal = cfg.frontend.apiBaseExternal;
+    apiBase = cfg.frontend.apiBase;
   };
 
   # Environment file generation
   envFile = pkgs.writeText "deeptutor.env" ''
-    # Server Configuration
-    BACKEND_PORT=${toString cfg.backend.port}
-    FRONTEND_PORT=${toString cfg.frontend.port}
-    DEEPTUTOR_DATA_DIR=${cfg.dataDir}
-
-    # LLM Configuration
-    LLM_BINDING=${cfg.llm.binding}
-    LLM_MODEL=${cfg.llm.model}
-    LLM_HOST=${cfg.llm.host}
-
-    # Embedding Configuration
-    EMBEDDING_BINDING=${cfg.embedding.binding}
-    EMBEDDING_MODEL=${cfg.embedding.model}
-    EMBEDDING_DIMENSION=${toString cfg.embedding.dimension}
-    EMBEDDING_HOST=${cfg.embedding.host}
-
-    # Search Configuration
-    SEARCH_PROVIDER=${cfg.search.provider}
-
-    # Logging
-    RAG_TOOL_MODULE_LOG_LEVEL=${cfg.logLevel}
-
-    ${optionalString (cfg.frontend.apiBaseExternal != null) ''
-      NEXT_PUBLIC_API_BASE_EXTERNAL=${cfg.frontend.apiBaseExternal}
-    ''}
-  '';
+# Server Configuration
+BACKEND_PORT=${toString cfg.backend.port}
+FRONTEND_PORT=${toString cfg.frontend.port}
+DEEPTUTOR_DATA_DIR=${cfg.dataDir}
+# LLM Configuration
+LLM_BINDING=${cfg.llm.binding}
+LLM_MODEL=${cfg.llm.model}
+LLM_HOST=${cfg.llm.host}
+# Embedding Configuration
+EMBEDDING_BINDING=${cfg.embedding.binding}
+EMBEDDING_MODEL=${cfg.embedding.model}
+EMBEDDING_DIMENSION=${toString cfg.embedding.dimension}
+EMBEDDING_HOST=${cfg.embedding.host}
+# Search Configuration
+SEARCH_PROVIDER=${cfg.search.provider}
+# Logging
+RAG_TOOL_MODULE_LOG_LEVEL=${cfg.logLevel}
+'';
   # Secrets are loaded separately via EnvironmentFile
 in {
   options.services.deeptutor = {
@@ -140,11 +131,15 @@ in {
         description = "Host to bind the frontend to";
       };
 
-      apiBaseExternal = mkOption {
-        type = types.nullOr types.str;
-        default = null;
-        example = "https://api.example.com:8001";
-        description = "External API URL for remote/cloud deployments";
+      apiBase = mkOption {
+        type = types.str;
+        default = "";
+        example = "http://localhost:8001";
+        description = ''
+          API base URL for the frontend to use.
+          Empty string (default) = same-origin, API served at /api on same domain.
+          Set to full URL for cross-origin development or separate API domain.
+        '';
       };
     };
 
@@ -262,6 +257,28 @@ in {
         Should contain: LLM_API_KEY, EMBEDDING_API_KEY, etc.
       '';
     };
+
+    # Nginx configuration
+    nginx = {
+      enable = mkOption {
+        type = types.bool;
+        default = false;
+        description = "Enable nginx virtual host for DeepTutor";
+      };
+
+      domain = mkOption {
+        type = types.str;
+        default = "localhost";
+        example = "deeptutor.example.com";
+        description = "Domain name for the DeepTutor service";
+      };
+
+      enableSSL = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Enable SSL with ACME (Let's Encrypt)";
+      };
+    };
   };
 
   config = mkIf cfg.enable {
@@ -313,7 +330,9 @@ in {
           ${pythonEnv}/bin/uvicorn src.api.main:app \
             --host ${cfg.backend.host} \
             --port ${toString cfg.backend.port} \
-            --workers ${toString cfg.backend.workers}
+            --workers ${toString cfg.backend.workers} \
+            --proxy-headers \
+            --forwarded-allow-ips="*"
         '';
         Restart = "on-failure";
         RestartSec = 5;
@@ -351,22 +370,23 @@ in {
         }
         // cfg.extraEnv;
 
+      script = ''
+        # Copy package to writable directory (only if changed)
+        if [ ! -f "${cfg.dataDir}/frontend/.package-hash" ] || \
+           [ "$(cat ${cfg.dataDir}/frontend/.package-hash 2>/dev/null)" != "${frontendPackage}" ]; then
+          rm -rf ${cfg.dataDir}/frontend/*
+          cp -r ${frontendPackage}/. ${cfg.dataDir}/frontend/
+          chmod -R u+w ${cfg.dataDir}/frontend
+          echo "${frontendPackage}" > ${cfg.dataDir}/frontend/.package-hash
+        fi
+        cd ${cfg.dataDir}/frontend
+        exec ${pkgs.nodejs_20}/bin/node node_modules/next/dist/bin/next start -p ${toString cfg.frontend.port} -H ${cfg.frontend.host}
+      '';
+
       serviceConfig = {
         Type = "simple";
         User = cfg.user;
         Group = cfg.group;
-        WorkingDirectory = "${cfg.dataDir}/frontend";
-        ExecStartPre = pkgs.writeShellScript "deeptutor-frontend-setup" ''
-          # Copy package to writable directory (only if changed)
-          if [ ! -f "${cfg.dataDir}/frontend/.package-hash" ] || \
-             [ "$(cat ${cfg.dataDir}/frontend/.package-hash 2>/dev/null)" != "${frontendPackage}" ]; then
-            rm -rf ${cfg.dataDir}/frontend/*
-            cp -r ${frontendPackage}/. ${cfg.dataDir}/frontend/
-            chmod -R u+w ${cfg.dataDir}/frontend
-            echo "${frontendPackage}" > ${cfg.dataDir}/frontend/.package-hash
-          fi
-        '';
-        ExecStart = "${pkgs.nodejs_20}/bin/node node_modules/next/dist/bin/next start -p ${toString cfg.frontend.port} -H ${cfg.frontend.host}";
         Restart = "on-failure";
         RestartSec = 5;
 
@@ -387,6 +407,28 @@ in {
       allowedTCPPorts =
         (optional cfg.backend.enable cfg.backend.port)
         ++ (optional cfg.frontend.enable cfg.frontend.port);
+    };
+
+    # Nginx virtual host - serves frontend and proxies /api to backend
+    services.nginx = mkIf cfg.nginx.enable {
+      enable = true;
+      recommendedProxySettings = true;
+      recommendedTlsSettings = true;
+
+      virtualHosts.${cfg.nginx.domain} = {
+        forceSSL = cfg.nginx.enableSSL;
+        enableACME = cfg.nginx.enableSSL;
+
+        locations."/" = mkIf cfg.frontend.enable {
+          proxyPass = "http://${cfg.frontend.host}:${toString cfg.frontend.port}";
+          proxyWebsockets = true;
+        };
+
+        locations."/api" = mkIf cfg.backend.enable {
+          proxyPass = "http://${cfg.backend.host}:${toString cfg.backend.port}";
+          proxyWebsockets = true;
+        };
+      };
     };
 
     # Assertions

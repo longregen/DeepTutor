@@ -1,8 +1,10 @@
 {
   pkgs,
   src,
-  apiBase ? "http://127.0.0.1:8001",
-  apiBaseExternal ? null,
+  # API base URL:
+  # - "" (empty) = same-origin, API at /api on same domain (recommended for production)
+  # - "http://127.0.0.1:8001" = cross-origin development
+  apiBase ? "",
 }:
 pkgs.buildNpmPackage {
   pname = "deeptutor-frontend";
@@ -11,9 +13,8 @@ pkgs.buildNpmPackage {
 
   npmDepsHash = "sha256-VhGOG5GlKlx86YRdjWOMNpEmvryj/rfym5ow6d4121c=";
 
-  # Use external URL if provided, otherwise use internal
   env = {
-    NEXT_PUBLIC_API_BASE = if apiBaseExternal != null then apiBaseExternal else apiBase;
+    NEXT_PUBLIC_API_BASE = apiBase;
   };
 
   buildPhase = ''

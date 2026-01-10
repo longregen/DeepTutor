@@ -21,7 +21,7 @@ from src.api.utils.task_id_manager import TaskIDManager
 _project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(_project_root))
 from src.logging import get_logger
-from src.services.config import load_config_with_main
+from src.services.config import get_user_dir, load_config_with_main
 
 # Initialize logger with config
 project_root = Path(__file__).parent.parent.parent.parent
@@ -54,8 +54,7 @@ async def websocket_solve(websocket: WebSocket):
         await websocket.send_json({"type": "task_id", "task_id": task_id})
 
         # 2. Initialize Solver
-        root_dir = Path(__file__).parent.parent.parent.parent
-        output_base = root_dir / "data" / "user" / "solve"
+        output_base = get_user_dir() / "solve"
 
         solver = MainSolver(kb_name=kb_name, output_base_dir=str(output_base))
 

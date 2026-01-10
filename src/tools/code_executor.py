@@ -23,6 +23,7 @@ DEFAULT_WORKSPACE_NAME = "run_code_workspace"
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 from src.logging import get_logger
+from src.services.config import get_user_dir
 
 logger = get_logger("CodeExecutor")
 
@@ -134,13 +135,13 @@ class WorkspaceManager:
                     self.base_dir = (PROJECT_ROOT / workspace_path).resolve()
             else:
                 # Default workspace is set under user directory
-                self.base_dir = (PROJECT_ROOT / "data" / "user" / DEFAULT_WORKSPACE_NAME).resolve()
+                self.base_dir = (get_user_dir() / DEFAULT_WORKSPACE_NAME).resolve()
 
         # Determine allowed root paths list
         # Default includes project root and user directory
         self.allowed_roots: list[Path] = [
             PROJECT_ROOT.resolve(),
-            (PROJECT_ROOT / "data" / "user").resolve(),
+            get_user_dir().resolve(),
         ]
 
         # Read allowed root paths from config file

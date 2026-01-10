@@ -13,7 +13,7 @@ from src.agents.research.research_pipeline import ResearchPipeline
 from src.api.utils.history import ActivityType, history_manager
 from src.api.utils.task_id_manager import TaskIDManager
 from src.logging import get_logger
-from src.services.config import load_config_with_main
+from src.services.config import get_user_dir, load_config_with_main
 from src.services.llm import get_llm_config
 
 # Force stdout to use utf-8 to prevent encoding errors with emojis on Windows
@@ -234,9 +234,7 @@ async def websocket_research_run(websocket: WebSocket):
             config["planning"]["rephrase"]["enabled"] = False
 
         # Define unified output directory
-        # Use project root directory user/research as unified output directory
-        root_dir = Path(__file__).parent.parent.parent.parent
-        output_base = root_dir / "data" / "user" / "research"
+        output_base = get_user_dir() / "research"
 
         # Update config with unified output paths
         if "system" not in config:
