@@ -1,0 +1,18 @@
+--- a/single_include/nlohmann/json.hpp
++++ b/single_include/nlohmann/json.hpp
+@@ -4950,7 +4950,6 @@ inline void from_json(const BasicJsonType& j, std::filesystem::path& p)
+ #endif // JSON_HAS_FILESYSTEM || JSON_HAS_EXPERIMENTAL_FILESYSTEM
+
+ #ifdef JSON_HAS_CPP_17
+-#ifndef JSON_USE_IMPLICIT_CONVERSIONS
+ template<typename BasicJsonType, typename T>
+ void from_json(const BasicJsonType& j, std::optional<T>& opt)
+ {
+@@ -4963,7 +4962,6 @@ void from_json(const BasicJsonType& j, std::optional<T>& opt)
+     }
+ }
+
+-#endif // JSON_USE_IMPLICIT_CONVERSIONS
+ #endif // JSON_HAS_CPP_17
+
+ struct from_json_fn
