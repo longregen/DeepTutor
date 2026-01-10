@@ -2,27 +2,68 @@
   description = "DeepTutor - AI-powered personalized learning assistant";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
+    nixpkgs.url = "git+ssh://gitea/mirrors/nixpkgs?shallow=1&ref=nixos-unstable";
+    flake-utils.url = "git+ssh://gitea/mirrors/flake-utils";
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
+  outputs = {
+    self,
+    nixpkgs,
+    flake-utils,
+  }:
+    {
+      # System-independent outputs
+
+      # NixOS module
+      nixosModules.default = import ./nix/nixos;
+      nixosModules.deeptutor = import ./nix/nixos;
+
+      # Overlays
+      overlays.default = final: prev: let
+        pythonPackagesOverlay = import ./nix/python-packages/overlay.nix {inherit prev;};
+      in {
+        python311 = prev.python311.override {
+          packageOverrides = pythonPackagesOverlay;
+        };
+        python311Packages = final.python311.pkgs;
+        loguru-cpp = prev.callPackage ./nix/cxx-packages/loguru-cpp {};
+      };
+
+      overlays.pythonPackages = final: prev:
+        import ./nix/python-packages/overlay.nix {inherit prev;};
+    }
+    // flake-utils.lib.eachDefaultSystem (
+      system: let
         pkgs = import nixpkgs {
           inherit system;
-          config.allowUnfree = true;
+          config = {
+            allowUnfree = true;
+            nvidia.acceptLicense = true;
+            cudaSupport = true;
+            cudaEnableForwardCompat = true;
+          };
+          overlays = [
+            (final: prev: let
+              pythonPackagesOverlay = import ./nix/python-packages/overlay.nix {inherit prev;};
+            in {
+              python311 = prev.python311.override {
+                packageOverrides = pythonPackagesOverlay;
+              };
+              python311Packages = final.python311.pkgs;
+              loguru-cpp = prev.callPackage ./nix/cxx-packages/loguru-cpp {};
+            })
+          ];
         };
 
-        # Python with packages from nixpkgs where available
-        pythonPackages = pkgs.python311Packages;
-        python = pkgs.python311;
+        py = pkgs.python311Packages;
 
-        # System dependencies needed for Python packages
+        pythonPackagesList = import ./nix/python-packages/packages.nix;
+        pythonWithPackages = pkgs.python311.withPackages pythonPackagesList;
+
         systemDeps = with pkgs; [
-          # Build tools
           gcc
           gnumake
+          cmake
           pkg-config
 
           # SSL/TLS
@@ -40,120 +81,181 @@
           # For PDF processing
           poppler-utils
 
+          # For imgui-bundle
+          glfw
+          libGL
+          libGLU
+
           # Git for development
           git
         ];
 
-        # Python development dependencies
-        pythonDevDeps = with pythonPackages; [
-          pip
-          setuptools
-          wheel
-          virtualenv
-        ];
-
-        # Create a shell script to set up the Python environment
-        setupScript = pkgs.writeShellScriptBin "setup-deeptutor" ''
-          echo "Setting up DeepTutor development environment..."
-
-          # Create virtual environment if it doesn't exist
-          if [ ! -d ".venv" ]; then
-            echo "Creating virtual environment..."
-            python -m venv .venv
-          fi
-
-          # Activate and install dependencies
-          source .venv/bin/activate
-          echo "Installing Python dependencies..."
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest pytest-asyncio pytest-cov
-
-          echo "Setup complete! Activate with: source .venv/bin/activate"
-        '';
-
-        # Script to run tests
         testScript = pkgs.writeShellScriptBin "run-tests" ''
-          if [ -d ".venv" ]; then
-            source .venv/bin/activate
-          fi
-          PYTHONPATH="$PWD" pytest tests/ -v --tb=short "$@"
+          PYTHONPATH="$PWD:$PYTHONPATH" pytest tests/ -v --tb=short "$@"
         '';
 
-        # Script to run the Groq integration test
         groqTestScript = pkgs.writeShellScriptBin "test-groq" ''
-          if [ -d ".venv" ]; then
-            source .venv/bin/activate
-          fi
-          PYTHONPATH="$PWD" pytest tests/integration/test_groq_llm.py -v --tb=short "$@"
+          PYTHONPATH="$PWD:$PYTHONPATH" pytest tests/integration/test_groq_llm.py -v --tb=short "$@"
         '';
 
-      in
-      {
-        # Development shell
+        # Application wrappers
+        deeptutor-app = pkgs.writeShellScriptBin "deeptutor" ''
+          set -e
+          SOURCE_DIR="''${DEEPTUTOR_SOURCE_DIR:-${self}}"
+          export DEEPTUTOR_DATA_DIR="''${DEEPTUTOR_DATA_DIR:-$HOME/.local/share/deeptutor}"
+          export PYTHONPATH="$SOURCE_DIR:$PYTHONPATH"
+
+          # Load .env if present
+          if [ -f "$SOURCE_DIR/.env" ]; then
+            set -a
+            source "$SOURCE_DIR/.env"
+            set +a
+          fi
+
+          # Ensure data directory exists
+          mkdir -p "$DEEPTUTOR_DATA_DIR/user"
+
+          echo "DeepTutor - AI-powered personalized learning assistant"
+          echo "======================================================="
+          echo "Data directory: $DEEPTUTOR_DATA_DIR"
+          echo ""
+
+          cd "$SOURCE_DIR"
+          exec ${pythonWithPackages}/bin/python scripts/start_web.py "$@"
+        '';
+
+        deeptutor-backend = pkgs.writeShellScriptBin "deeptutor-backend" ''
+          set -e
+          SOURCE_DIR="''${DEEPTUTOR_SOURCE_DIR:-${self}}"
+          export DEEPTUTOR_DATA_DIR="''${DEEPTUTOR_DATA_DIR:-$HOME/.local/share/deeptutor}"
+          export PYTHONPATH="$SOURCE_DIR:$PYTHONPATH"
+
+          # Load .env if present
+          if [ -f "$SOURCE_DIR/.env" ]; then
+            set -a
+            source "$SOURCE_DIR/.env"
+            set +a
+          fi
+
+          mkdir -p "$DEEPTUTOR_DATA_DIR/user"
+
+          cd "$SOURCE_DIR"
+          exec ${pythonWithPackages}/bin/uvicorn src.api.main:app \
+            --host "''${BACKEND_HOST:-127.0.0.1}" \
+            --port "''${BACKEND_PORT:-8001}" \
+            "$@"
+        '';
+
+        deeptutor-cli = pkgs.writeShellScriptBin "deeptutor-cli" ''
+          set -e
+          SOURCE_DIR="''${DEEPTUTOR_SOURCE_DIR:-${self}}"
+          export DEEPTUTOR_DATA_DIR="''${DEEPTUTOR_DATA_DIR:-$HOME/.local/share/deeptutor}"
+          export PYTHONPATH="$SOURCE_DIR:$PYTHONPATH"
+
+          # Load .env if present
+          if [ -f "$SOURCE_DIR/.env" ]; then
+            set -a
+            source "$SOURCE_DIR/.env"
+            set +a
+          fi
+
+          mkdir -p "$DEEPTUTOR_DATA_DIR/user"
+
+          cd "$SOURCE_DIR"
+          exec ${pythonWithPackages}/bin/python scripts/start.py "$@"
+        '';
+      in {
         devShells.default = pkgs.mkShell {
           name = "deeptutor-dev";
 
-          buildInputs = systemDeps ++ pythonDevDeps ++ [
-            python
-            pkgs.nodejs_20
-            pkgs.nodePackages.npm
-            setupScript
-            testScript
-            groqTestScript
-          ];
+          buildInputs =
+            systemDeps
+            ++ [
+              pythonWithPackages
+              pkgs.nodejs_20
+              pkgs.nodePackages.npm
+              pkgs.pre-commit
+              testScript
+              groqTestScript
+            ];
 
           shellHook = ''
             echo "DeepTutor Development Environment"
-            echo "=================================="
-            echo ""
-            echo "Available commands:"
-            echo "  setup-deeptutor  - Set up Python virtual environment and install dependencies"
-            echo "  run-tests        - Run all tests"
-            echo "  test-groq        - Run Groq integration test"
-            echo ""
-            echo "Python version: $(python --version)"
-            echo "Node version: $(node --version)"
-            echo ""
-
-            # Activate venv if it exists
-            if [ -d ".venv" ]; then
-              source .venv/bin/activate
-              echo "Virtual environment activated."
-            else
-              echo "Run 'setup-deeptutor' to create the virtual environment."
-            fi
-
-            # Set PYTHONPATH
             export PYTHONPATH="$PWD:$PYTHONPATH"
           '';
 
-          # Environment variables
           LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath systemDeps;
         };
 
-        # Package for running tests in CI
-        packages.default = pkgs.writeShellScriptBin "deeptutor-test" ''
-          cd ${self}
-          ${python}/bin/python -m pytest tests/ -v --tb=short
-        '';
+        packages = {
+          # Main application
+          default = deeptutor-app;
+          deeptutor = deeptutor-app;
+          backend = deeptutor-backend;
+          cli = deeptutor-cli;
 
-        # CI-specific shell with minimal dependencies for testing
-        devShells.ci = pkgs.mkShell {
-          name = "deeptutor-ci";
-
-          buildInputs = systemDeps ++ [
-            python
-            pythonPackages.pip
-            pythonPackages.setuptools
-            pythonPackages.wheel
-          ];
-
-          shellHook = ''
-            export PYTHONPATH="$PWD:$PYTHONPATH"
+          # Test runner
+          test = pkgs.writeShellScriptBin "deeptutor-test" ''
+            cd ${self}
+            export DEEPTUTOR_DATA_DIR="''${DEEPTUTOR_DATA_DIR:-/tmp/deeptutor-test}"
+            mkdir -p "$DEEPTUTOR_DATA_DIR/user"
+            ${pythonWithPackages}/bin/python -m pytest tests/ -v --tb=short "$@"
           '';
 
-          LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath systemDeps;
+          # Python packages (all from overlay)
+          inherit
+            (py)
+            wasmer
+            ascii-colors
+            nano-vectordb
+            pipmaster
+            pymilvus
+            pgvector
+            voyageai
+            zhipuai
+            perplexityai
+            scikit-network
+            ragas
+            docling-parse
+            docling
+            mineru
+            imgui-bundle
+            lightrag-hku
+            raganything
+            pytest-doctestplus
+            duckdb-engine
+            pydevd
+            ;
+
+          # C++ packages
+          loguru-cpp = pkgs.loguru-cpp;
+
+          # Full Python environment
+          python = pythonWithPackages;
+        };
+
+        # Apps for `nix run`
+        apps = {
+          default = {
+            type = "app";
+            program = "${deeptutor-app}/bin/deeptutor";
+          };
+          deeptutor = {
+            type = "app";
+            program = "${deeptutor-app}/bin/deeptutor";
+          };
+          backend = {
+            type = "app";
+            program = "${deeptutor-backend}/bin/deeptutor-backend";
+          };
+          cli = {
+            type = "app";
+            program = "${deeptutor-cli}/bin/deeptutor-cli";
+          };
+          test = {
+            type = "app";
+            program = "${testScript}/bin/run-tests";
+          };
         };
       }
     );
