@@ -14,7 +14,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from src.services.config import get_user_dir
 
-# Define storage path (respects DEEPTUTOR_DATA_DIR env var)
 USER_DATA_DIR = get_user_dir()
 PROVIDERS_FILE = USER_DATA_DIR / "embedding_providers.json"
 
@@ -30,6 +29,11 @@ class EmbeddingProvider(BaseModel):
     api_key: str = Field(default="", description="API Key (optional for local providers)")
     model: str = Field(..., description="Model name to use")
     dimensions: int = Field(..., description="Embedding vector dimensions")
+    send_dimensions: bool = Field(
+        default=False,
+        description="Whether to send dimensions parameter in API requests. "
+        "Set to True only for models that support variable dimensions (e.g., text-embedding-3-*)",
+    )
     is_active: bool = Field(default=False, description="Whether this provider is currently active")
 
     # Optional advanced settings for some specific providers, view each api references for details

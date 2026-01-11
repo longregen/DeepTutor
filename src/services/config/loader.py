@@ -5,31 +5,26 @@ Configuration Loader
 ====================
 
 Unified configuration loading for all DeepTutor modules.
-Provides YAML configuration loading, path resolution, and language parsing.
 """
 
 from pathlib import Path
 from typing import Any
 
 import yaml
+import os
 
 
-# Project root: src/services/config/ -> project root (3 levels up)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 
 
 def _get_config_dir() -> Path:
     """
     Get the configuration directory path, respecting DEEPTUTOR_CONFIG_DIR environment variable.
-
-    For containerized/NixOS deployments, set DEEPTUTOR_CONFIG_DIR to a writable path.
-    Otherwise, defaults to PROJECT_ROOT/config.
+    Defaults to PROJECT_ROOT/config.
 
     Returns:
         Path to the configuration directory
     """
-    import os
-
     config_dir_env = os.environ.get("DEEPTUTOR_CONFIG_DIR")
     if config_dir_env:
         return Path(config_dir_env)
@@ -60,22 +55,16 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
     return result
 
 
-def load_config_with_main(config_file: str, project_root: Path | None = None) -> dict[str, Any]:
+def load_config_with_main(config_file: str) -> dict[str, Any]:
     """
     Load configuration file, automatically merge with main.yaml common configuration
 
     Args:
         config_file: Sub-module configuration file name (e.g., "solve_config.yaml")
-        project_root: Project root directory (if None, will try to auto-detect).
-                      Note: DEEPTUTOR_CONFIG_DIR env var takes precedence if set.
 
     Returns:
         Merged configuration dictionary
     """
-    if project_root is None:
-        project_root = PROJECT_ROOT
-
-    # Use DEEPTUTOR_CONFIG_DIR if set, otherwise fall back to project_root/config
     config_dir = _get_config_dir()
 
     # 1. Load main.yaml (common configuration)
@@ -102,34 +91,6 @@ def load_config_with_main(config_file: str, project_root: Path | None = None) ->
     merged_config = _deep_merge(main_config, module_config)
 
     return merged_config
-
-
-def get_path_from_config(config: dict[str, Any], path_key: str, default: str = None) -> str:
-    """
-    Get path from configuration, supports searching in paths and system
-
-    Args:
-        config: Configuration dictionary
-        path_key: Path key name (e.g., "log_dir", "workspace")
-        default: Default value
-
-    Returns:
-        Path string
-    """
-    # Priority: search in paths
-    if "paths" in config and path_key in config["paths"]:
-        return config["paths"][path_key]
-
-    # Search in system (backward compatibility)
-    if "system" in config and path_key in config["system"]:
-        return config["system"][path_key]
-
-    # Search in tools (e.g., run_code.workspace)
-    if "tools" in config:
-        if path_key == "workspace" and "run_code" in config["tools"]:
-            return config["tools"]["run_code"].get("workspace", default)
-
-    return default
 
 
 def parse_language(language: Any) -> str:
@@ -222,8 +183,6 @@ def get_data_dir() -> Path:
     Returns:
         Path to the data directory
     """
-    import os
-
     data_dir_env = os.environ.get("DEEPTUTOR_DATA_DIR")
     if data_dir_env:
         return Path(data_dir_env)
@@ -250,15 +209,31 @@ def get_knowledge_base_dir() -> Path:
     return get_data_dir() / "knowledge_bases"
 
 
+def get_log_dir() -> Path:
+    """
+    Get the log directory path, respecting DEEPTUTOR_LOG_DIR environment variable.
+
+    For containerized deployments, set DEEPTUTOR_LOG_DIR to a writable path.
+    Otherwise, defaults to DEEPTUTOR_DATA_DIR/user/logs.
+
+    Returns:
+        Path to the log directory
+    """
+    log_dir_env = os.environ.get("DEEPTUTOR_LOG_DIR")
+    if log_dir_env:
+        return Path(log_dir_env)
+    return get_user_dir() / "logs"
+
+
 __all__ = [
     "PROJECT_ROOT",
     "load_config_with_main",
-    "get_path_from_config",
     "parse_language",
     "get_agent_params",
     "get_data_dir",
     "get_user_dir",
     "get_knowledge_base_dir",
+    "get_log_dir",
     "_deep_merge",
     "_get_config_dir",
 ]

@@ -27,9 +27,6 @@ class LoggingConfig:
     console_level: str = "INFO"
     file_level: str = "DEBUG"
 
-    # Log directory (relative to project root or absolute)
-    log_dir: Optional[str] = None
-
     # File rotation settings
     max_bytes: int = 10 * 1024 * 1024  # 10MB
     backup_count: int = 5
@@ -45,10 +42,10 @@ class LoggingConfig:
 
 
 def get_default_log_dir() -> Path:
-    """Get the default log directory (respects DEEPTUTOR_DATA_DIR env var)."""
-    from src.services.config import get_user_dir
+    """Get the default log directory."""
+    from src.services.config import get_log_dir
 
-    return get_user_dir() / "logs"
+    return get_log_dir()
 
 
 def load_logging_config() -> LoggingConfig:
@@ -59,9 +56,9 @@ def load_logging_config() -> LoggingConfig:
         LoggingConfig instance with loaded or default values.
     """
     try:
-        from src.services.config import get_path_from_config, load_config_with_main
+        from src.services.config import load_config_with_main
 
-        config = load_config_with_main("solve_config.yaml", _project_root)
+        config = load_config_with_main("solve_config.yaml")
 
         logging_config = config.get("logging", {})
 
@@ -70,7 +67,6 @@ def load_logging_config() -> LoggingConfig:
             file_output=logging_config.get("file_output", True),
             console_level=logging_config.get("console_level", "INFO"),
             file_level=logging_config.get("file_level", "DEBUG"),
-            log_dir=get_path_from_config(config, "user_log_dir"),
             lightrag_forwarding_enabled=logging_config.get("lightrag_forwarding", {}).get(
                 "enabled", True
             ),

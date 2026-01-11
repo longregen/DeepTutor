@@ -58,10 +58,8 @@ class NotebookManager:
 
         Args:
             base_dir: Notebook storage directory, defaults to user/notebook
-                     (respects DEEPTUTOR_DATA_DIR env var)
         """
         if base_dir is None:
-            # Use get_user_dir() which respects DEEPTUTOR_DATA_DIR env var
             base_dir_path = get_user_dir() / "notebook"
         else:
             base_dir_path = Path(base_dir)

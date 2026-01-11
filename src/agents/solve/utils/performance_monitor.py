@@ -94,12 +94,11 @@ class PerformanceMonitor:
 
         Args:
             enabled: Whether to enable monitoring
-            save_dir: Save directory (None uses user/performance, respects DEEPTUTOR_DATA_DIR)
+            save_dir: Save directory (None uses user/performance)
         """
         self.enabled = enabled
 
         if save_dir is None:
-            # Use get_user_dir() which respects DEEPTUTOR_DATA_DIR env var
             from src.services.config import get_user_dir
 
             self.save_dir = get_user_dir() / "performance"
@@ -362,7 +361,8 @@ def init_monitor_from_config(config: dict) -> PerformanceMonitor:
     monitoring_config = config.get("monitoring", {})
 
     enabled = monitoring_config.get("enabled", True)
-    save_dir = monitoring_config.get("save_dir", "./logs/performance")
+    from src.services.config import get_user_dir
+    save_dir = monitoring_config.get("save_dir", str(get_user_dir() / "performance"))
 
     return get_monitor(enabled=enabled, save_dir=save_dir)
 

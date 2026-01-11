@@ -17,12 +17,9 @@ from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 
 from src.agents.chat import ChatAgent, SessionManager
 from src.logging import get_logger
-from src.services.config import load_config_with_main
 
-# Initialize logger
-config = load_config_with_main("solve_config.yaml", _project_root)
-log_dir = config.get("paths", {}).get("user_log_dir") or config.get("logging", {}).get("log_dir")
-logger = get_logger("ChatAPI", level="INFO", log_dir=log_dir)
+# Initialize logger (uses DEEPTUTOR_DATA_DIR env var if set)
+logger = get_logger("ChatAPI", level="INFO")
 
 router = APIRouter()
 

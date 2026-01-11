@@ -10,7 +10,6 @@ from pathlib import Path
 import shutil
 from typing import Any, Dict, List, Optional
 
-from src.logging import get_logger
 from src.services.config import get_knowledge_base_dir
 
 from .components.base import Component
@@ -45,6 +44,8 @@ class RAGPipeline:
         """
         self.name = name
         self.kb_base_dir = kb_base_dir or str(get_knowledge_base_dir())
+        # Lazy import to avoid circular dependency
+        from src.logging import get_logger
         self.logger = get_logger(f"Pipeline:{name}")
         self._parser: Optional[Component] = None
         self._chunkers: List[Component] = []

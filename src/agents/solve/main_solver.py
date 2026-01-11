@@ -66,19 +66,15 @@ class MainSolver:
         # Load config from config directory (main.yaml unified config)
         if config_path is None:
             # Load main.yaml (solve_config.yaml is optional and will be merged if exists)
-            full_config = load_config_with_main("main.yaml", _project_root)
+            full_config = load_config_with_main("main.yaml")
 
             # Extract solve-specific config and build validator-compatible structure
             solve_config = full_config.get("solve", {})
-            paths_config = full_config.get("paths", {})
 
             # Build config structure expected by ConfigValidator
             self.config = {
                 "system": {
-                    # Use get_user_dir() which respects DEEPTUTOR_DATA_DIR env var
-                    "output_base_dir": paths_config.get(
-                        "solve_output_dir", str(get_user_dir() / "solve")
-                    ),
+                    "output_base_dir": str(get_user_dir() / "solve"),
                     "save_intermediate_results": solve_config.get(
                         "save_intermediate_results", True
                     ),
@@ -87,7 +83,6 @@ class MainSolver:
                 "agents": solve_config.get("agents", {}),
                 "logging": full_config.get("logging", {}),
                 "tools": full_config.get("tools", {}),
-                "paths": paths_config,
                 # Keep solve-specific settings accessible
                 "solve": solve_config,
             }
@@ -113,9 +108,6 @@ class MainSolver:
             if "system" not in self.config:
                 self.config["system"] = {}
             self.config["system"]["output_base_dir"] = str(output_base_dir)
-
-            # Note: log_dir and performance_log_dir are now in paths section from main.yaml
-            # Only override if explicitly needed
 
         # Validate config
         validator = ConfigValidator()
@@ -151,18 +143,10 @@ class MainSolver:
         self.base_url = base_url
         self.kb_name = kb_name
 
-        # Initialize logging system
         logging_config = self.config.get("logging", {})
-        # Get log_dir from paths (user_log_dir from main.yaml) or logging config
-        log_dir = (
-            self.config.get("paths", {}).get("user_log_dir")
-            or self.config.get("paths", {}).get("log_dir")
-            or logging_config.get("log_dir")
-        )
         self.logger = SolveAgentLogger(
             name="Solver",
             level=logging_config.get("level", "INFO"),
-            log_dir=log_dir,
             console_output=logging_config.get("console_output", True),
             file_output=logging_config.get("save_to_file", True),
         )
@@ -252,7 +236,7 @@ class MainSolver:
         """
         # Create output directory
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_base_dir = self.config.get("system", {}).get("output_base_dir", "./user/solve")
+        output_base_dir = self.config.get("system", {}).get("output_base_dir", str(get_user_dir() / "solve"))
         output_dir = os.path.join(output_base_dir, f"solve_{timestamp}")
         os.makedirs(output_dir, exist_ok=True)
 

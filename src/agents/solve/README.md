@@ -268,7 +268,6 @@ logging:
   level: "INFO"
   save_to_file: true
   console_output: true
-  log_dir: "./logs"
 
 monitoring:
   enabled: true

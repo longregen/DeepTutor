@@ -64,14 +64,12 @@ async def _search_with_baidu(
         search_recency_filter=search_recency_filter,
     )
 
-    # Extract answer from response
     answer = ""
     if response.get("choices"):
         choice = response["choices"][0]
         if choice.get("message"):
             answer = choice["message"].get("content", "")
 
-    # Build standardized result
     result = {
         "timestamp": datetime.now().isoformat(),
         "query": query,
@@ -90,7 +88,6 @@ async def _search_with_baidu(
         "request_id": response.get("request_id", ""),
     }
 
-    # Extract usage information
     if response.get("usage"):
         usage = response["usage"]
         result["usage"] = {
@@ -99,7 +96,6 @@ async def _search_with_baidu(
             "total_tokens": usage.get("total_tokens", 0),
         }
 
-    # Extract references/citations
     if response.get("references"):
         for i, ref in enumerate(response["references"], 1):
             citation_data = {
@@ -126,7 +122,6 @@ async def _search_with_baidu(
             }
             result["search_results"].append(search_result)
 
-    # Extract follow-up queries if available
     if response.get("followup_queries"):
         result["followup_queries"] = response["followup_queries"]
 
@@ -183,7 +178,6 @@ async def _search_with_kagi(
         "request_id": response.get("meta", {}).get("id", ""),
     }
 
-    # Extract API balance info
     meta = response.get("meta", {})
     if meta:
         result["usage"] = {
@@ -191,7 +185,6 @@ async def _search_with_kagi(
             "response_time_ms": meta.get("ms", 0),
         }
 
-    # Extract search results from data array
     data = response.get("data", [])
     related_searches = []
 
@@ -316,7 +309,6 @@ def _search_with_perplexity(query: str, verbose: bool = False) -> dict:
         "search_results": [],
     }
 
-    # Extract citation links
     if hasattr(completion, "citations") and completion.citations:
         for i, citation_url in enumerate(completion.citations, 1):
             citation_data = {

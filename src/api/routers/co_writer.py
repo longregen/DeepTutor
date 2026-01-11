@@ -20,15 +20,12 @@ from src.agents.co_writer.edit_agent import (
 )
 from src.agents.co_writer.narrator_agent import NarratorAgent
 from src.logging import get_logger
-from src.services.config import load_config_with_main
 from src.services.tts import get_tts_config
 
 router = APIRouter()
 
-# Initialize logger with config
-config = load_config_with_main("solve_config.yaml", _project_root)  # Use any config to get main.yaml
-log_dir = config.get("paths", {}).get("user_log_dir") or config.get("logging", {}).get("log_dir")
-logger = get_logger("CoWriter", level="INFO", log_dir=log_dir)
+# Initialize logger (uses DEEPTUTOR_DATA_DIR env var if set)
+logger = get_logger("CoWriter", level="INFO")
 
 agent = EditAgent()
 

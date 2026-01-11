@@ -38,7 +38,7 @@ class QuestionValidationAgent(BaseAgent):
         )
 
         # Load config for RAG settings
-        self._config = load_config_with_main("question_config.yaml", _project_root)
+        self._config = load_config_with_main("question_config.yaml")
 
         self.current_question = None
         self.validation_result = None

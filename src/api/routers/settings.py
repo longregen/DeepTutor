@@ -188,7 +188,6 @@ ENV_CATEGORIES = {
 }
 
 # Settings file path (for local client/UI prefs not appropriate for main.yaml)
-# Uses get_user_dir() which respects DEEPTUTOR_DATA_DIR env var
 SETTINGS_FILE = get_user_dir() / "settings.json"
 
 # Default UI settings
@@ -383,8 +382,7 @@ async def get_config_info():
     """Get configuration information (paths, kb settings, etc.)"""
     config = config_manager.load_config()
 
-    paths = config.get("paths", {})
-    user_data_dir = paths.get("user_data_dir", str(get_user_dir()))
+    user_data_dir = str(get_user_dir())
     kb_base_dir = (
         config.get("tools", {}).get("rag_tool", {}).get("kb_base_dir", str(get_knowledge_base_dir()))
     )

@@ -13,7 +13,6 @@ _project_root = Path(__file__).resolve().parent.parent.parent.parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
-from src.logging import get_logger
 from src.logging.adapters import LightRAGLogContext
 from src.services.config import get_knowledge_base_dir
 
@@ -48,6 +47,8 @@ class RAGAnythingPipeline:
             enable_table_processing: Enable table extraction and processing
             enable_equation_processing: Enable equation extraction and processing
         """
+        # Lazy import to avoid circular dependency
+        from src.logging import get_logger
         self.logger = get_logger("RAGAnythingPipeline")
         self.kb_base_dir = kb_base_dir or str(get_knowledge_base_dir())
         self.enable_image = enable_image_processing

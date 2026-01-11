@@ -13,7 +13,6 @@ if str(_project_root) not in sys.path:
 
 from src.services.config import get_knowledge_base_dir
 
-# Knowledge base base directory (respects DEEPTUTOR_DATA_DIR env var)
 KNOWLEDGE_BASES_DIR = get_knowledge_base_dir()
 
 # raganything module path

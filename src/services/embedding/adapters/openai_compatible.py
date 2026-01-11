@@ -29,7 +29,8 @@ class OpenAICompatibleEmbeddingAdapter(BaseEmbeddingAdapter):
             "encoding_format": request.encoding_format or "float",
         }
 
-        if request.dimensions or self.dimensions:
+        # Only send dimensions if send_dimensions is True (for models supporting variable dimensions)
+        if self.send_dimensions and (request.dimensions or self.dimensions):
             payload["dimensions"] = request.dimensions or self.dimensions
 
         url = f"{self.base_url}/embeddings"

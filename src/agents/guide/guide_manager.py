@@ -76,7 +76,7 @@ class GuideManager:
         self.binding = binding
 
         if config_path is None:
-            config = load_config_with_main("guide_config.yaml", _project_root)
+            config = load_config_with_main("guide_config.yaml")
         else:
             config_path = Path(config_path)
             if config_path.exists():
@@ -88,11 +88,7 @@ class GuideManager:
             else:
                 config = {}
 
-        # Initialize logger (from config)
-        log_dir = config.get("paths", {}).get("user_log_dir") or config.get("logging", {}).get(
-            "log_dir"
-        )
-        self.logger = get_logger("Guide", log_dir=log_dir)
+        self.logger = get_logger("Guide")
 
         if language is None:
             # Get language config (unified in config/main.yaml system.language)
@@ -107,13 +103,7 @@ class GuideManager:
         if output_dir:
             self.output_dir = Path(output_dir)
         else:
-            # Get output_dir from config (already loaded above)
-            output_dir_from_config = config.get("system", {}).get("output_dir")
-            if output_dir_from_config:
-                self.output_dir = Path(output_dir_from_config)
-            else:
-                # Use get_user_dir() which respects DEEPTUTOR_DATA_DIR env var
-                self.output_dir = get_user_dir() / "guide"
+            self.output_dir = get_user_dir() / "guide"
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         self.locate_agent = LocateAgent(api_key, base_url, self.language, binding=self.binding)

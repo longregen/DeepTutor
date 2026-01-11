@@ -7,8 +7,6 @@ Unified LLM client for all DeepTutor services.
 
 from typing import Any, Dict, List, Optional
 
-from src.logging import get_logger
-
 from .config import LLMConfig, get_llm_config
 
 
@@ -27,6 +25,8 @@ class LLMClient:
             config: LLM configuration. If None, loads from environment.
         """
         self.config = config or get_llm_config()
+        # Lazy import to avoid circular dependency
+        from src.logging import get_logger
         self.logger = get_logger("LLMClient")
 
     async def complete(
@@ -188,7 +188,6 @@ class LLMClient:
         return vision_model_func
 
 
-# Singleton instance
 _client: Optional[LLMClient] = None
 
 

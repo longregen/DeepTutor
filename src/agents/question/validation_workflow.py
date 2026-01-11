@@ -77,7 +77,7 @@ class QuestionValidationWorkflow:
         self._agent_params = get_agent_params("question")
 
         # Load config for RAG settings
-        self._config = load_config_with_main("question_config.yaml", _project_root)
+        self._config = load_config_with_main("question_config.yaml")
 
     async def validate(
         self, question: dict[str, Any], reference_question: str | None = None

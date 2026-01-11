@@ -18,7 +18,6 @@ class KnowledgeBaseManager:
     """Manager for knowledge bases"""
 
     def __init__(self, base_dir=None):
-        # Use get_knowledge_base_dir() which respects DEEPTUTOR_DATA_DIR env var
         if base_dir is None:
             self.base_dir = get_knowledge_base_dir()
         else:

@@ -64,7 +64,7 @@ def get_lightrag_forwarding_config() -> dict:
         from src.services.config import load_config_with_main
 
         # Use resolve() to get absolute path, ensuring correct project root regardless of working directory
-        config = load_config_with_main("solve_config.yaml", _project_root)
+        config = load_config_with_main("solve_config.yaml")
 
         forwarding_config = config.get("logging", {}).get("lightrag_forwarding", {})
 

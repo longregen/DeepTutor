@@ -5,6 +5,8 @@ ToolAgent - Tool executor
 Responsible for reading tool calls in solve-chain, actually executing tools and producing summary
 """
 
+import asyncio
+from dataclasses import dataclass
 from pathlib import Path
 import re
 import sys
@@ -22,6 +24,20 @@ from src.tools.web_search import web_search
 
 from ..memory import CitationMemory, SolveChainStep, SolveMemory
 from ..memory.solve_memory import ToolCallRecord
+
+
+@dataclass
+class ToolExecutionResult:
+    """Result of a single tool execution"""
+    call_id: str
+    tool_type: str
+    cite_id: str | None
+    raw_answer: str
+    summary: str
+    metadata: dict[str, Any]
+    status: str  # "success" or "failed"
+    elapsed_ms: float
+    error: str | None = None
 
 
 class ToolAgent(BaseAgent):
@@ -96,76 +112,32 @@ Rules:
             "Tool", "start", f"step={step.step_id}, pending_calls={len(pending)}"
         )
 
-        for record in pending:
-            call_label = f"{record.tool_type} | cite={record.cite_id or '-'}"
-            self.logger.log_stage_progress(
-                "Tool", "running", f"step={step.step_id}, call={call_label}"
+        # Execute all tool calls in parallel
+        execution_tasks = [
+            self._execute_and_summarize(
+                record=record,
+                kb_name=kb_name,
+                output_dir=output_dir,
+                artifacts_dir=str(artifacts_dir),
+                verbose=verbose,
             )
-            start_ts = time.time()
-            try:
-                raw_answer, metadata = await self._execute_single_call(
-                    record=record,
-                    kb_name=kb_name,
-                    output_dir=output_dir,
-                    artifacts_dir=str(artifacts_dir),
-                    verbose=verbose,
-                )
+            for record in pending
+        ]
 
-                # Check if code execution failed
-                is_failed = False
-                if record.tool_type == "code_execution":
-                    is_failed = metadata.get("execution_failed", False)
-                    exit_code = metadata.get("exit_code", 0)
-                    if exit_code != 0:
-                        is_failed = True
+        # Run all executions concurrently
+        results = await asyncio.gather(*execution_tasks, return_exceptions=True)
 
-                summary = await self._summarize_tool_result(
-                    tool_type=record.tool_type, query=record.query, raw_answer=raw_answer
-                )
+        # Process results sequentially to update shared memory safely
+        for i, result in enumerate(results):
+            record = pending[i]
+            call_label = f"{record.tool_type} | cite={record.cite_id or '-'}"
 
-                # Set correct status based on execution result
-                status = "failed" if is_failed else "success"
-                solve_memory.update_tool_call_result(
-                    step_id=step.step_id,
-                    call_id=record.call_id,
-                    raw_answer=raw_answer,
-                    summary=summary,
-                    status=status,
-                    metadata=metadata,  # Pass metadata to ensure artifacts are saved
+            if isinstance(result, Exception):
+                # Handle exceptions from asyncio.gather
+                error_msg = str(result)
+                self.logger.log_stage_progress(
+                    "Tool", "warning", f"step={step.step_id}, call={call_label}, error={error_msg}"
                 )
-                citation_memory.update_citation(
-                    cite_id=record.cite_id,
-                    raw_result=raw_answer,
-                    content=summary,
-                    metadata=metadata,
-                    step_id=step.step_id,
-                )
-                elapsed_ms = (time.time() - start_ts) * 1000
-                self.logger.log_tool_call(
-                    tool_name=record.tool_type,
-                    tool_input={
-                        "step_id": step.step_id,
-                        "call_id": record.call_id,
-                        "query": record.query,
-                    },
-                    tool_output=raw_answer,
-                    status="success",
-                    elapsed_ms=elapsed_ms,
-                    step_id=step.step_id,
-                    cite_id=record.cite_id,
-                )
-                logs.append(
-                    {
-                        "call_id": record.call_id,
-                        "tool_type": record.tool_type,
-                        "cite_id": record.cite_id,
-                        "status": "success",
-                        "summary": summary,
-                    }
-                )
-            except Exception as e:
-                error_msg = str(e)
-                elapsed_ms = (time.time() - start_ts) * 1000
                 solve_memory.update_tool_call_result(
                     step_id=step.step_id,
                     call_id=record.call_id,
@@ -174,13 +146,14 @@ Rules:
                     status="failed",
                     metadata={"error": True},
                 )
-                citation_memory.update_citation(
-                    cite_id=record.cite_id,
-                    raw_result=error_msg,
-                    content=error_msg[:200],
-                    metadata={"error": True},
-                    step_id=step.step_id,
-                )
+                if record.cite_id:
+                    citation_memory.update_citation(
+                        cite_id=record.cite_id,
+                        raw_result=error_msg,
+                        content=error_msg[:200],
+                        metadata={"error": True},
+                        step_id=step.step_id,
+                    )
                 self.logger.log_tool_call(
                     tool_name=record.tool_type,
                     tool_input={
@@ -190,22 +163,70 @@ Rules:
                     },
                     tool_output=error_msg,
                     status="failed",
-                    elapsed_ms=elapsed_ms,
+                    elapsed_ms=0,
                     step_id=step.step_id,
                     cite_id=record.cite_id,
                 )
-                self.logger.log_stage_progress(
-                    "Tool", "warning", f"step={step.step_id}, call={call_label}, error={error_msg}"
+                logs.append({
+                    "call_id": record.call_id,
+                    "tool_type": record.tool_type,
+                    "cite_id": record.cite_id,
+                    "status": "failed",
+                    "error": error_msg,
+                })
+            else:
+                # Handle successful execution result
+                exec_result: ToolExecutionResult = result
+
+                solve_memory.update_tool_call_result(
+                    step_id=step.step_id,
+                    call_id=exec_result.call_id,
+                    raw_answer=exec_result.raw_answer,
+                    summary=exec_result.summary,
+                    status=exec_result.status,
+                    metadata=exec_result.metadata,
                 )
-                logs.append(
-                    {
-                        "call_id": record.call_id,
-                        "tool_type": record.tool_type,
-                        "cite_id": record.cite_id,
+                if exec_result.cite_id:
+                    citation_memory.update_citation(
+                        cite_id=exec_result.cite_id,
+                        raw_result=exec_result.raw_answer,
+                        content=exec_result.summary,
+                        metadata=exec_result.metadata,
+                        step_id=step.step_id,
+                    )
+                self.logger.log_tool_call(
+                    tool_name=exec_result.tool_type,
+                    tool_input={
+                        "step_id": step.step_id,
+                        "call_id": exec_result.call_id,
+                        "query": record.query,
+                    },
+                    tool_output=exec_result.raw_answer,
+                    status=exec_result.status,
+                    elapsed_ms=exec_result.elapsed_ms,
+                    step_id=step.step_id,
+                    cite_id=exec_result.cite_id,
+                )
+
+                if exec_result.status == "failed":
+                    self.logger.log_stage_progress(
+                        "Tool", "warning", f"step={step.step_id}, call={call_label}, error={exec_result.error}"
+                    )
+                    logs.append({
+                        "call_id": exec_result.call_id,
+                        "tool_type": exec_result.tool_type,
+                        "cite_id": exec_result.cite_id,
                         "status": "failed",
-                        "error": error_msg,
-                    }
-                )
+                        "error": exec_result.error,
+                    })
+                else:
+                    logs.append({
+                        "call_id": exec_result.call_id,
+                        "tool_type": exec_result.tool_type,
+                        "cite_id": exec_result.cite_id,
+                        "status": "success",
+                        "summary": exec_result.summary,
+                    })
 
         solve_memory.save()
         citation_memory.save()
@@ -215,6 +236,70 @@ Rules:
         )
 
         return {"step_id": step.step_id, "executed": logs, "status": "completed"}
+
+    async def _execute_and_summarize(
+        self,
+        record: ToolCallRecord,
+        kb_name: str,
+        output_dir: str | None,
+        artifacts_dir: str,
+        verbose: bool,
+    ) -> ToolExecutionResult:
+        """Execute a single tool call and summarize the result (parallelizable)"""
+        start_ts = time.time()
+
+        try:
+            raw_answer, metadata = await self._execute_single_call(
+                record=record,
+                kb_name=kb_name,
+                output_dir=output_dir,
+                artifacts_dir=artifacts_dir,
+                verbose=verbose,
+            )
+
+            # Check if code execution failed
+            is_failed = False
+            if record.tool_type == "code_execution":
+                is_failed = metadata.get("execution_failed", False)
+                exit_code = metadata.get("exit_code", 0)
+                if exit_code != 0:
+                    is_failed = True
+
+            # Summarize the result (this also calls LLM, so it's parallelized)
+            summary = await self._summarize_tool_result(
+                tool_type=record.tool_type, query=record.query, raw_answer=raw_answer
+            )
+
+            elapsed_ms = (time.time() - start_ts) * 1000
+            status = "failed" if is_failed else "success"
+
+            return ToolExecutionResult(
+                call_id=record.call_id,
+                tool_type=record.tool_type,
+                cite_id=record.cite_id,
+                raw_answer=raw_answer,
+                summary=summary,
+                metadata=metadata,
+                status=status,
+                elapsed_ms=elapsed_ms,
+                error=raw_answer if is_failed else None,
+            )
+
+        except Exception as e:
+            elapsed_ms = (time.time() - start_ts) * 1000
+            error_msg = str(e)
+
+            return ToolExecutionResult(
+                call_id=record.call_id,
+                tool_type=record.tool_type,
+                cite_id=record.cite_id,
+                raw_answer=error_msg,
+                summary=error_msg[:200],
+                metadata={"error": True},
+                status="failed",
+                elapsed_ms=elapsed_ms,
+                error=error_msg,
+            )
 
     async def _execute_single_call(
         self,

@@ -3,6 +3,7 @@
   buildPythonPackage,
   fetchurl,
   setuptools,
+  # Core dependencies (from pip show)
   pydantic,
   pillow,
   numpy,
@@ -15,6 +16,23 @@
   torchvision,
   transformers,
   huggingface-hub,
+  # Additional required dependencies (from pip show)
+  loguru,
+  click,
+  boto3,
+  httpx,
+  json-repair,
+  opencv-python,
+  pdfminer-six,
+  scikit-image,
+  openai,
+  reportlab,
+  pypdfium2,
+  magika,
+  fast-langdetect,
+  modelscope,
+  qwen-vl-utils,
+  mineru-vl-utils,
 }:
 buildPythonPackage rec {
   pname = "mineru";
@@ -34,6 +52,7 @@ buildPythonPackage rec {
   dontUseNinjaCheck = true;
 
   dependencies = [
+    # Core dependencies
     pydantic
     pillow
     numpy
@@ -46,6 +65,23 @@ buildPythonPackage rec {
     torchvision
     transformers
     huggingface-hub
+    # Required for CLI and runtime
+    loguru
+    click
+    boto3
+    httpx
+    json-repair
+    opencv-python
+    pdfminer-six
+    scikit-image
+    openai
+    reportlab
+    pypdfium2
+    magika
+    fast-langdetect
+    modelscope
+    qwen-vl-utils
+    mineru-vl-utils
   ];
 
   pythonImportsCheck = ["mineru"];

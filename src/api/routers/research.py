@@ -29,13 +29,11 @@ router = APIRouter()
 
 # Helper to load config (with main.yaml merge)
 def load_config():
-    return load_config_with_main("research_config.yaml", _project_root)
+    return load_config_with_main("research_config.yaml")
 
 
-# Initialize logger with config
-config = load_config()
-log_dir = config.get("paths", {}).get("user_log_dir") or config.get("logging", {}).get("log_dir")
-logger = get_logger("ResearchAPI", log_dir=log_dir)
+# Initialize logger (uses DEEPTUTOR_DATA_DIR env var if set)
+logger = get_logger("ResearchAPI")
 
 
 class OptimizeRequest(BaseModel):
@@ -112,17 +110,10 @@ async def websocket_research_run(websocket: WebSocket):
         # Send task ID to frontend
         await websocket.send_json({"type": "task_id", "task_id": task_id})
 
-        # Use unified logger
+        # Use unified logger (uses DEEPTUTOR_DATA_DIR env var if set)
         config = load_config()
-        try:
-            # Get log_dir from config
-            log_dir = config.get("paths", {}).get("user_log_dir") or config.get("logging", {}).get(
-                "log_dir"
-            )
-            research_logger = get_logger("Research", log_dir=log_dir)
-            research_logger.info(f"[{task_id}] Starting research flow: {topic[:50]}...")
-        except Exception as e:
-            logger.warning(f"Failed to initialize research logger: {e}")
+        research_logger = get_logger("Research")
+        research_logger.info(f"[{task_id}] Starting research flow: {topic[:50]}...")
 
         # 2. Initialize Pipeline
         # Initialize nested config structures from research.* (main.yaml structure)
@@ -358,15 +349,9 @@ async def websocket_research_run(websocket: WebSocket):
             )
 
             # Update task status to completed
-            try:
-                log_dir = config.get("paths", {}).get("user_log_dir") or config.get(
-                    "logging", {}
-                ).get("log_dir")
-                research_logger = get_logger("Research", log_dir=log_dir)
-                research_logger.success(f"[{task_id}] Research flow completed: {topic[:50]}...")
-                task_manager.update_task_status(task_id, "completed")
-            except Exception as e:
-                logger.warning(f"Failed to log completion: {e}")
+            research_logger = get_logger("Research")
+            research_logger.success(f"[{task_id}] Research flow completed: {topic[:50]}...")
+            task_manager.update_task_status(task_id, "completed")
 
         finally:
             sys.stdout = original_stdout  # Safely restore using saved reference
@@ -376,15 +361,9 @@ async def websocket_research_run(websocket: WebSocket):
         logging.error(f"Research error: {e}", exc_info=True)
 
         # Update task status to error
-        try:
-            log_dir = config.get("paths", {}).get("user_log_dir") or config.get("logging", {}).get(
-                "log_dir"
-            )
-            research_logger = get_logger("Research", log_dir=log_dir)
-            research_logger.error(f"[{task_id}] Research flow failed: {e}")
-            task_manager.update_task_status(task_id, "error", error=str(e))
-        except Exception as log_err:
-            logger.warning(f"Failed to log error: {log_err}")
+        research_logger = get_logger("Research")
+        research_logger.error(f"[{task_id}] Research flow failed: {e}")
+        task_manager.update_task_status(task_id, "error", error=str(e))
     finally:
         if pusher_task:
             pusher_task.cancel()

@@ -70,12 +70,14 @@ class BaseEmbeddingAdapter(ABC):
                 - base_url: API endpoint URL
                 - model: Model name to use
                 - dimensions: Embedding vector dimensions
+                - send_dimensions: Whether to send dimensions in API request
                 - request_timeout: Request timeout in seconds
         """
         self.api_key = config.get("api_key")
         self.base_url = config.get("base_url")
         self.model = config.get("model")
         self.dimensions = config.get("dimensions")
+        self.send_dimensions = config.get("send_dimensions", False)
         self.request_timeout = config.get("request_timeout", 30)
 
     @abstractmethod

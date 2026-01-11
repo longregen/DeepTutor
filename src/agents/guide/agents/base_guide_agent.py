@@ -14,7 +14,7 @@ _project_root = Path(__file__).resolve().parent.parent.parent.parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
-from src.core.core import get_agent_params, get_token_limit_kwargs, load_config_with_main
+from src.core.core import get_agent_params, get_token_limit_kwargs
 from src.core.llm_factory import llm_complete
 from src.core.logging import LLMStats, get_logger
 from src.core.prompt_manager import get_prompt_manager
@@ -53,16 +53,7 @@ class BaseGuideAgent(ABC):
         # Load agent parameters from unified config (agents.yaml)
         self._agent_params = get_agent_params("guide")
 
-        # Initialize logger (from config)
-        try:
-            config = load_config_with_main("guide_config.yaml", _project_root)
-            log_dir = config.get("paths", {}).get("user_log_dir") or config.get("logging", {}).get(
-                "log_dir"
-            )
-            self.logger = get_logger(f"Guide.{agent_name}", log_dir=log_dir)
-        except Exception:
-            # Fallback logger
-            self.logger = get_logger(f"Guide.{agent_name}")
+        self.logger = get_logger(f"Guide.{agent_name}")
 
         # Load prompts using unified PromptManager
         self.prompts = get_prompt_manager().load_prompts(

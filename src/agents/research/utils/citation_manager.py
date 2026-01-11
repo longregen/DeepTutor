@@ -16,6 +16,8 @@ _project_root = Path(__file__).resolve().parent.parent.parent.parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
+from src.services.config import get_user_dir
+
 
 class CitationManager:
     """Citation manager with global ID management"""
@@ -30,7 +32,7 @@ class CitationManager:
         """
         self.research_id = research_id
         if cache_dir is None:
-            cache_dir = Path("./cache") / research_id
+            cache_dir = get_user_dir() / "research" / "cache" / research_id
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 

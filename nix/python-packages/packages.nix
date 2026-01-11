@@ -41,6 +41,7 @@ ps: [
   ps.pandas
   ps.scipy
   ps.networkx
+  # ps.graspologic  # Disabled: gensim dependency fails to build; lightrag doesn't use it with NetworkXStorage
   ps.pillow
   ps.moderngl
 

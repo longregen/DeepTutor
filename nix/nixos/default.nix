@@ -314,6 +314,8 @@ in {
       requires = ["systemd-tmpfiles-setup.service"];
       wantedBy = ["multi-user.target"];
 
+      path = [ pythonEnv ];
+
       environment =
         {
           PYTHONPATH = "${cfg.sourceDir}";

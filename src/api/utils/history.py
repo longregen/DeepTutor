@@ -19,11 +19,9 @@ class HistoryManager:
         History record manager
 
         Args:
-            base_dir: History record directory. Defaults to user data directory
-                      which respects DEEPTUTOR_DATA_DIR env var.
+            base_dir: History record directory. Defaults to user data directory.
         """
         if base_dir is None:
-            # Use get_user_dir() which respects DEEPTUTOR_DATA_DIR env var
             base_dir_path = get_user_dir()
         else:
             base_dir_path = Path(base_dir)

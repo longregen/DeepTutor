@@ -5,7 +5,7 @@ Unified Logging System for DeepTutor
 A clean, consistent logging system with:
 - Unified format: [Module] Symbol Message
 - English-only output
-- File output to data/user/logs/
+- File output to DEEPTUTOR_LOG_DIR (defaults to {DEEPTUTOR_DATA_DIR}/user/logs)
 - WebSocket streaming support
 - Color-coded console output
 - LLM usage statistics tracking

@@ -39,16 +39,13 @@ async def lifespan(app: FastAPI):
     Application lifecycle management
     Gracefully handle startup and shutdown events, avoid CancelledError
     """
-    # Execute on startup
     logger.info("Application startup")
     yield
-    # Execute on shutdown
     logger.info("Application shutdown")
 
 
 app = FastAPI(title="DeepTutor API", version="1.0.0", lifespan=lifespan)
 
-# Configure CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # In production, replace with specific frontend origin
@@ -76,7 +73,6 @@ except Exception:
 
 app.mount("/api/outputs", StaticFiles(directory=str(user_dir)), name="outputs")
 
-# Include routers
 app.include_router(solve.router, prefix="/api/v1", tags=["solve"])
 app.include_router(chat.router, prefix="/api/v1", tags=["chat"])
 app.include_router(question.router, prefix="/api/v1/question", tags=["question"])

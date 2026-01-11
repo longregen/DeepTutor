@@ -23,7 +23,6 @@ from src.services.prompt import get_prompt_manager
 from src.tools.rag_tool import rag_search
 from src.tools.web_search import web_search
 
-# Initialize logger (respects DEEPTUTOR_DATA_DIR env var)
 logger = get_logger("CoWriter")
 
 # Shared stats tracker for co_writer
@@ -52,7 +51,6 @@ def print_stats():
         _co_writer_stats.print_summary()
 
 
-# Use get_user_dir() which respects DEEPTUTOR_DATA_DIR env var
 USER_DIR = get_user_dir() / "co-writer"
 HISTORY_FILE = USER_DIR / "history.json"
 TOOL_CALLS_DIR = USER_DIR / "tool_calls"

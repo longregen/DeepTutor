@@ -9,7 +9,6 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from src.logging import get_logger
 from src.services.config import get_knowledge_base_dir
 
 
@@ -47,6 +46,8 @@ class RAGService:
             provider: RAG pipeline provider to use.
                       Defaults to RAG_PROVIDER env var or "raganything".
         """
+        # Lazy import to avoid circular dependency
+        from src.logging import get_logger
         self.logger = get_logger("RAGService")
         self.kb_base_dir = kb_base_dir or str(get_knowledge_base_dir())
         self.provider = provider or os.getenv("RAG_PROVIDER", "raganything")

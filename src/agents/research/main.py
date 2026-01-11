@@ -21,6 +21,7 @@ from dotenv import load_dotenv
 import yaml
 
 from src.agents.research.research_pipeline import ResearchPipeline
+from src.services.config import get_user_dir
 from src.services.llm import get_llm_config
 
 
@@ -38,7 +39,7 @@ def load_config(config_path: str = None, preset: str = None) -> dict:
     if config_path is None:
         from src.services.config import load_config_with_main
 
-        config = load_config_with_main("research_config.yaml", _project_root)
+        config = load_config_with_main("research_config.yaml")
     else:
         # If custom config path provided, load it directly (for backward compatibility)
         config_file = Path(config_path)
@@ -122,8 +123,6 @@ Examples:
         help="Preset configuration (quick: fast, standard: standard, deep: deep)",
     )
 
-    parser.add_argument("--output-dir", type=str, help="Output directory (overrides config file)")
-
     args = parser.parse_args()
 
     # Load environment variables
@@ -147,13 +146,16 @@ Examples:
         print(f"✗ Failed to load configuration: {e!s}")
         sys.exit(1)
 
-    # Override configuration (command line arguments take priority)
-    if args.output_dir:
-        config["system"]["output_base_dir"] = args.output_dir
-        config["system"]["reports_dir"] = args.output_dir
-
     # Display configuration
     display_config(config)
+
+    # Display output directory information
+    user_dir = get_user_dir()
+    print("📁 Output Directories:")
+    print(f"  Cache: {user_dir / 'research' / 'cache'}")
+    print(f"  Reports: {user_dir / 'research' / 'reports'}")
+    print(f"  (Set DEEPTUTOR_DATA_DIR environment variable to change base directory)")
+    print()
 
     # Create research pipeline
     pipeline = ResearchPipeline(

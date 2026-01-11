@@ -122,13 +122,18 @@ class SolveChainStep:
 
 
 class SolveMemory:
-    """solve-chain data storage"""
+    """solve-chain data storage
+
+    Features lazy loading for solve_chains to avoid loading large JSON files
+    until they are actually needed.
+    """
 
     def __init__(
         self,
         task_id: Optional[str] = None,
         user_question: str = "",
         output_dir: Optional[str] = None,
+        _lazy_load: bool = False,
     ):
         self.task_id = task_id or f"solve_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
         self.user_question = user_question
@@ -138,7 +143,9 @@ class SolveMemory:
         self.created_at = _now()
         self.updated_at = _now()
 
-        self.solve_chains: List[SolveChainStep] = []
+        # Core data - lazy loaded when _lazy_load=True
+        self._solve_chains: Optional[List[SolveChainStep]] = None if _lazy_load else []
+        self._is_loaded: bool = not _lazy_load
 
         self.metadata: Dict[str, Any] = {
             "total_steps": 0,
@@ -147,6 +154,41 @@ class SolveMemory:
         }
 
         self.file_path = Path(output_dir) / "solve_chain.json" if output_dir else None
+
+    @property
+    def solve_chains(self) -> List[SolveChainStep]:
+        """Lazy-loaded solve_chains property"""
+        if self._solve_chains is None:
+            self._load_data_if_needed()
+        return self._solve_chains  # type: ignore
+
+    @solve_chains.setter
+    def solve_chains(self, value: List[SolveChainStep]):
+        self._solve_chains = value
+        self._is_loaded = True
+
+    def _load_data_if_needed(self):
+        """Load data from file if not already loaded"""
+        if self._is_loaded:
+            return
+
+        if self.file_path and self.file_path.exists():
+            try:
+                with open(self.file_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+
+                self._solve_chains = [
+                    SolveChainStep.from_dict(step) for step in data.get("solve_chains", [])
+                ]
+                self.metadata = data.get("metadata", self.metadata)
+            except Exception:
+                # If loading fails, initialize with defaults
+                self._solve_chains = []
+        else:
+            # No file exists, initialize with defaults
+            self._solve_chains = []
+
+        self._is_loaded = True
 
     # ------------------------------------------------------------------ #
     # Load/Save
@@ -157,17 +199,55 @@ class SolveMemory:
         output_dir: str,
         user_question: str = "",
         task_id: Optional[str] = None,
+        lazy: bool = False,
     ) -> "SolveMemory":
+        """Load existing memory or create new memory
+
+        Args:
+            output_dir: Directory containing the memory file
+            user_question: User question for new memories
+            task_id: Task ID for new memories
+            lazy: If True, defer loading data until first access (for performance)
+
+        Returns:
+            SolveMemory instance
+        """
         file_path = Path(output_dir) / "solve_chain.json"
         legacy_path = Path(output_dir) / "solve_memory.json"
+
+        # Handle legacy file migration (always full load)
         if not file_path.exists() and legacy_path.exists():
             memory = cls(task_id=task_id, user_question=user_question, output_dir=output_dir)
             memory._load_from_legacy_file(legacy_path)
             memory.save()
             return memory
+
         if not file_path.exists():
             return cls(task_id=task_id, user_question=user_question, output_dir=output_dir)
 
+        if lazy:
+            # Create memory with lazy loading enabled
+            # Only load metadata for quick access, defer heavy data
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+
+                memory = cls(
+                    task_id=data.get("task_id", task_id),
+                    user_question=data.get("user_question", user_question),
+                    output_dir=output_dir,
+                    _lazy_load=True,
+                )
+                memory.version = data.get("version", "solve_chain_v1")
+                memory.created_at = data.get("created_at", memory.created_at)
+                memory.updated_at = data.get("updated_at", memory.updated_at)
+                memory.metadata = data.get("metadata", memory.metadata)
+                return memory
+            except Exception:
+                # If quick load fails, fall back to full load
+                pass
+
+        # Full load (existing behavior)
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
@@ -186,6 +266,12 @@ class SolveMemory:
         ]
 
         return memory
+
+    @staticmethod
+    def exists(output_dir: str) -> bool:
+        """Check if memory file exists without loading it"""
+        file_path = Path(output_dir) / "solve_chain.json"
+        return file_path.exists()
 
     def save(self):
         if not self.file_path:

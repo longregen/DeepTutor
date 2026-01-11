@@ -23,7 +23,7 @@ from ..utils.json_utils import extract_json_from_text
 
 
 class ResearchAgent(BaseAgent):
-    """Research Agent"""
+    """Executes research logic, manages tool calls, and checks knowledge sufficiency."""
 
     def __init__(self, config: dict[str, Any], api_key: str = None, base_url: str = None):
         language = config.get("system", {}).get("language", "zh")

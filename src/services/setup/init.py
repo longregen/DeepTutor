@@ -9,7 +9,6 @@ import json
 import os
 from pathlib import Path
 
-from src.logging import get_logger
 from src.services.config import get_user_dir, load_config_with_main
 
 # Initialize logger for setup operations
@@ -20,6 +19,8 @@ def _get_setup_logger():
     """Get logger for setup operations"""
     global _setup_logger
     if _setup_logger is None:
+        # Lazy import to avoid circular dependency
+        from src.logging import get_logger
         _setup_logger = get_logger("Setup")
     return _setup_logger
 
@@ -52,9 +53,6 @@ def init_user_directories(project_root: Path | None = None) -> None:
     Args:
         project_root: Project root directory (deprecated, kept for backwards compatibility)
     """
-    # Use get_user_dir() which respects DEEPTUTOR_DATA_DIR env var
-    # This is critical for containerized deployments where
-    # the source directory is read-only
     user_data_dir = get_user_dir()
 
     # Required subdirectories (based on actual usage in the codebase)

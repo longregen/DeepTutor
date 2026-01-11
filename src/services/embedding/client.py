@@ -6,11 +6,12 @@ Unified embedding client for all DeepTutor services.
 Now supports multiple providers through adapters.
 """
 
-from typing import List, Optional
-
-from src.logging import get_logger
+from typing import TYPE_CHECKING, List, Optional
 
 from .adapters.base import EmbeddingRequest
+
+if TYPE_CHECKING:
+    from src.logging import Logger
 from .config import EmbeddingConfig, get_embedding_config
 from .provider import EmbeddingProviderManager, get_embedding_provider_manager
 
@@ -31,6 +32,8 @@ class EmbeddingClient:
             config: Embedding configuration. If None, loads from environment.
         """
         self.config = config or get_embedding_config()
+        # Lazy import to avoid circular dependency
+        from src.logging import get_logger
         self.logger = get_logger("EmbeddingClient")
         self.manager: EmbeddingProviderManager = get_embedding_provider_manager()
 
@@ -43,6 +46,7 @@ class EmbeddingClient:
                     "base_url": self.config.base_url,
                     "model": self.config.model,
                     "dimensions": self.config.dim,
+                    "send_dimensions": self.config.send_dimensions,
                     "request_timeout": self.config.request_timeout,
                 },
             )

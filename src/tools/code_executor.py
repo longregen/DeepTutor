@@ -37,7 +37,7 @@ def _load_config() -> dict[str, Any]:
 
         # Try loading from solve_config (most common use case)
         try:
-            config = load_config_with_main("solve_config.yaml", _project_root)
+            config = load_config_with_main("solve_config.yaml")
             run_code_config = config.get("tools", {}).get("run_code", {})
             if run_code_config:
                 logger.debug("Loaded run_code config from solve_config.yaml (with main.yaml)")
@@ -47,7 +47,7 @@ def _load_config() -> dict[str, Any]:
 
         # Fallback to question_config
         try:
-            config = load_config_with_main("question_config.yaml", _project_root)
+            config = load_config_with_main("question_config.yaml")
             run_code_config = config.get("tools", {}).get("run_code", {})
             if run_code_config:
                 logger.debug("Loaded run_code config from question_config.yaml (with main.yaml)")
@@ -57,7 +57,7 @@ def _load_config() -> dict[str, Any]:
 
         # Fallback to main.yaml only
         try:
-            config = load_config_with_main("solve_config.yaml", _project_root)
+            config = load_config_with_main("solve_config.yaml")
             run_code_config = config.get("tools", {}).get("run_code", {})
             if run_code_config:
                 return run_code_config
@@ -131,7 +131,21 @@ class WorkspaceManager:
                 if workspace_path.is_absolute():
                     self.base_dir = workspace_path.resolve()
                 else:
-                    self.base_dir = (_project_root / workspace_path).resolve()
+                    # Resolve relative paths against data dir, not project root
+                    # (project root may be read-only in containerized/Nix deployments)
+                    ws_str = str(workspace_path).replace("\\", "/").lstrip("./")
+                    if ws_str.startswith("data/user/"):
+                        # Strip "data/user/" prefix and resolve against get_user_dir()
+                        suffix = ws_str[10:]  # len("data/user/") = 10
+                        self.base_dir = (get_user_dir() / suffix).resolve()
+                    elif ws_str.startswith("data/"):
+                        # Strip "data/" prefix and resolve against get_data_dir()
+                        from src.services.config import get_data_dir
+                        suffix = ws_str[5:]  # len("data/") = 5
+                        self.base_dir = (get_data_dir() / suffix).resolve()
+                    else:
+                        # Preserve full relative path under user dir
+                        self.base_dir = (get_user_dir() / ws_str).resolve()
             else:
                 self.base_dir = (get_user_dir() / DEFAULT_WORKSPACE_NAME).resolve()
 
@@ -148,7 +162,20 @@ class WorkspaceManager:
             if root.is_absolute():
                 resolved_root = root.resolve()
             else:
-                resolved_root = (_project_root / root).resolve()
+                # Map data/ paths to get_data_dir(), others to project root (for source access)
+                root_str = str(root).replace("\\", "/").lstrip("./")
+                if root_str == "data/user" or root_str.startswith("data/user/"):
+                    # Strip "data/user" prefix and resolve against get_user_dir()
+                    suffix = root_str[9:].lstrip("/")  # len("data/user") = 9
+                    resolved_root = (get_user_dir() / suffix).resolve() if suffix else get_user_dir().resolve()
+                elif root_str.startswith("data/"):
+                    # Other data/ paths resolve against get_data_dir()
+                    from src.services.config import get_data_dir
+                    suffix = root_str[5:]  # len("data/") = 5
+                    resolved_root = (get_data_dir() / suffix).resolve()
+                else:
+                    # Non-data paths (e.g., ./src/tools) resolve against project root for read access
+                    resolved_root = (_project_root / root).resolve()
             # Avoid duplicate addition
             if resolved_root not in self.allowed_roots:
                 self.allowed_roots.append(resolved_root)
@@ -162,7 +189,17 @@ class WorkspaceManager:
                     if path.is_absolute():
                         resolved_path = path.resolve()
                     else:
-                        resolved_path = (_project_root / path).resolve()
+                        # Map data/ paths appropriately, others to project root
+                        path_str = str(path).replace("\\", "/").lstrip("./")
+                        if path_str == "data/user" or path_str.startswith("data/user/"):
+                            suffix = path_str[9:].lstrip("/")
+                            resolved_path = (get_user_dir() / suffix).resolve() if suffix else get_user_dir().resolve()
+                        elif path_str.startswith("data/"):
+                            from src.services.config import get_data_dir
+                            suffix = path_str[5:]
+                            resolved_path = (get_data_dir() / suffix).resolve()
+                        else:
+                            resolved_path = (_project_root / path).resolve()
                     # Avoid duplicate addition
                     if resolved_path not in self.allowed_roots:
                         self.allowed_roots.append(resolved_path)

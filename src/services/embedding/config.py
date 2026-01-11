@@ -31,6 +31,7 @@ class EmbeddingConfig:
     base_url: Optional[str] = None
     binding: str = "openai"
     dim: int = 3072
+    send_dimensions: bool = False  # Set to True only for models supporting variable dimensions
     max_tokens: int = 8192
     request_timeout: int = 30
     input_type: Optional[str] = None  # For task-aware embeddings (Cohere, Jina)
@@ -98,6 +99,7 @@ def get_embedding_config() -> EmbeddingConfig:
                 api_key=active_provider.api_key or "",  # Empty string for local providers
                 base_url=active_provider.base_url,
                 dim=active_provider.dimensions,
+                send_dimensions=active_provider.send_dimensions,
                 input_type=active_provider.input_type,
                 normalized=active_provider.normalized,
                 truncate=active_provider.truncate,
@@ -169,6 +171,7 @@ def get_embedding_config() -> EmbeddingConfig:
     normalized = _to_bool(_strip_value(os.getenv("EMBEDDING_NORMALIZED")), True)
     truncate = _to_bool(_strip_value(os.getenv("EMBEDDING_TRUNCATE")), True)
     late_chunking = _to_bool(_strip_value(os.getenv("EMBEDDING_LATE_CHUNKING")), False)
+    send_dimensions = _to_bool(_strip_value(os.getenv("EMBEDDING_SEND_DIMENSIONS")), False)
 
     return EmbeddingConfig(
         binding=binding,
@@ -176,6 +179,7 @@ def get_embedding_config() -> EmbeddingConfig:
         api_key=api_key,
         base_url=base_url,
         dim=dim,
+        send_dimensions=send_dimensions,
         max_tokens=max_tokens,
         request_timeout=request_timeout,
         input_type=input_type,

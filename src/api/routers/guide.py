@@ -20,15 +20,12 @@ from src.agents.guide.guide_manager import GuideManager
 from src.api.utils.notebook_manager import notebook_manager
 from src.api.utils.task_id_manager import TaskIDManager
 from src.logging import get_logger
-from src.services.config import load_config_with_main
 from src.services.llm import get_llm_config
 
 router = APIRouter()
 
-# Initialize logger with config
-config = load_config_with_main("guide_config.yaml", _project_root)
-log_dir = config.get("paths", {}).get("user_log_dir") or config.get("logging", {}).get("log_dir")
-logger = get_logger("Guide", level="INFO", log_dir=log_dir)
+# Initialize logger (uses DEEPTUTOR_DATA_DIR env var if set)
+logger = get_logger("Guide", level="INFO")
 
 
 # === Request/Response Models ===

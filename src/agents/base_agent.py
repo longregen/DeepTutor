@@ -39,7 +39,7 @@ class BaseAgent(ABC):
     This class provides:
     - LLM configuration management (api_key, base_url, model)
     - Agent parameters (temperature, max_tokens) from agents.yaml
-    - Prompt loading via PromptManager
+    - Prompt loading via PromptManager with class-level caching
     - Unified LLM call interface
     - Token tracking (supports TokenTracker, LLMStats, or singleton tracker)
     - Logging
@@ -49,6 +49,9 @@ class BaseAgent(ABC):
 
     # Shared LLMStats tracker for each module (class-level)
     _shared_stats: dict[str, LLMStats] = {}
+
+    # Prompt template cache (class-level) - keyed by (module_name, agent_name, language)
+    _prompt_cache: dict[tuple[str, str, str], dict | None] = {}
 
     def __init__(
         self,
@@ -125,18 +128,62 @@ class BaseAgent(ABC):
         logger_name = f"{module_name.capitalize()}.{agent_name}"
         self.logger = get_logger(logger_name, log_dir=log_dir)
 
-        # Load prompts using unified PromptManager
+        # Load prompts using unified PromptManager with class-level caching
+        self.prompts = self._load_prompts_cached(module_name, agent_name, language)
+
+    def _load_prompts_cached(
+        self, module_name: str, agent_name: str, language: str
+    ) -> dict | None:
+        """
+        Load prompts with class-level caching.
+
+        Prompts are cached by (module_name, agent_name, language) tuple to avoid
+        repeated file I/O and YAML parsing across multiple agent instances.
+
+        Returns:
+            Prompt dictionary or None if loading failed
+        """
+        cache_key = (module_name, agent_name, language)
+
+        # Check cache first
+        if cache_key in self._prompt_cache:
+            cached = self._prompt_cache[cache_key]
+            if cached is not None:
+                self.logger.debug(f"Prompts loaded from cache: {agent_name} ({language})")
+            return cached
+
+        # Not in cache, load from file
         try:
-            self.prompts = get_prompt_manager().load_prompts(
+            prompts = get_prompt_manager().load_prompts(
                 module_name=module_name,
                 agent_name=agent_name,
                 language=language,
             )
-            if self.prompts:
-                self.logger.debug(f"Prompts loaded: {agent_name} ({language})")
+            self._prompt_cache[cache_key] = prompts
+            if prompts:
+                self.logger.debug(f"Prompts loaded and cached: {agent_name} ({language})")
+            return prompts
         except Exception as e:
-            self.prompts = None
+            # Cache the failure too to avoid repeated attempts
+            self._prompt_cache[cache_key] = None
             self.logger.warning(f"Failed to load prompts for {agent_name}: {e}")
+            return None
+
+    @classmethod
+    def clear_prompt_cache(cls, module_name: str | None = None):
+        """
+        Clear cached prompts.
+
+        Args:
+            module_name: If provided, only clear prompts for this module.
+                        If None, clear all cached prompts.
+        """
+        if module_name is None:
+            cls._prompt_cache.clear()
+        else:
+            keys_to_remove = [k for k in cls._prompt_cache if k[0] == module_name]
+            for key in keys_to_remove:
+                del cls._prompt_cache[key]
 
     # -------------------------------------------------------------------------
     # Model and Parameter Getters

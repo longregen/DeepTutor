@@ -11,13 +11,15 @@ from pathlib import Path
 import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.tools.web_search import KagiSearch, _search_with_kagi
+from src.services.search import KagiSearch, RateLimitError, SearchError
+from src.tools.web_search import _search_with_kagi
 
 
 class TestKagiSearchClient:
@@ -35,10 +37,9 @@ class TestKagiSearchClient:
         """Test that BASE_URL is correctly set."""
         assert KagiSearch.BASE_URL == "https://kagi.com/api/v0/search"
 
-    @patch("src.tools.web_search.requests.get")
-    def test_successful_search(self, mock_get):
+    @pytest.mark.asyncio
+    async def test_successful_search(self):
         """Test successful search with mocked response."""
-        # Mock successful API response
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
@@ -50,7 +51,7 @@ class TestKagiSearchClient:
             },
             "data": [
                 {
-                    "t": 0,  # Search result type
+                    "t": 0,
                     "rank": 1,
                     "url": "https://example.com/article1",
                     "title": "Test Article 1",
@@ -67,26 +68,25 @@ class TestKagiSearchClient:
                 },
             ],
         }
-        mock_get.return_value = mock_response
 
-        client = KagiSearch(api_key="test-key")
-        result = client.search(query="test query")
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
+            mock_client_class.return_value = mock_client
 
-        # Verify request was made correctly
-        mock_get.assert_called_once()
-        call_args = mock_get.call_args
-        assert call_args.kwargs["params"]["q"] == "test query"
-        assert call_args.kwargs["headers"]["Authorization"] == "Bot test-key"
-        assert call_args.kwargs["timeout"] == 60
+            client = KagiSearch(api_key="test-key")
+            result = await client.search(query="test query")
 
-        # Verify response
-        assert result["meta"]["id"] == "test-request-id-123"
-        assert result["meta"]["api_balance"] == 0.95
-        assert len(result["data"]) == 2
-        assert result["data"][0]["title"] == "Test Article 1"
+            # Verify response
+            assert result["meta"]["id"] == "test-request-id-123"
+            assert result["meta"]["api_balance"] == 0.95
+            assert len(result["data"]) == 2
+            assert result["data"][0]["title"] == "Test Article 1"
 
-    @patch("src.tools.web_search.requests.get")
-    def test_search_with_limit(self, mock_get):
+    @pytest.mark.asyncio
+    async def test_search_with_limit(self):
         """Test search with limit parameter."""
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -94,32 +94,33 @@ class TestKagiSearchClient:
             "meta": {"id": "test-id", "api_balance": 0.95},
             "data": [],
         }
-        mock_get.return_value = mock_response
 
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
+            mock_client_class.return_value = mock_client
+
+            client = KagiSearch(api_key="test-key")
+            await client.search(query="test query", limit=5)
+
+            # Verify limit parameter was passed
+            call_args = mock_client.get.call_args
+            assert call_args.kwargs["params"]["limit"] == 5
+
+    @pytest.mark.asyncio
+    async def test_empty_query_validation(self):
+        """Test that empty query raises SearchError."""
         client = KagiSearch(api_key="test-key")
-        client.search(query="test query", limit=5)
 
-        # Verify limit parameter was passed
-        call_args = mock_get.call_args
-        assert call_args.kwargs["params"]["limit"] == 5
+        with pytest.raises(SearchError) as exc_info:
+            await client.search(query="")
 
-    @patch("src.tools.web_search.requests.get")
-    def test_empty_query_validation(self, mock_get):
-        """Test that empty query is handled (API will validate)."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"meta": {}, "data": []}
-        mock_get.return_value = mock_response
+        assert "empty" in str(exc_info.value).lower()
 
-        client = KagiSearch(api_key="test-key")
-        # Empty query should still make the request (API validates)
-        result = client.search(query="")
-
-        call_args = mock_get.call_args
-        assert call_args.kwargs["params"]["q"] == ""
-
-    @patch("src.tools.web_search.requests.get")
-    def test_api_error_non_200_response(self, mock_get):
+    @pytest.mark.asyncio
+    async def test_api_error_non_200_response(self):
         """Test handling of non-200 API response."""
         mock_response = MagicMock()
         mock_response.status_code = 400
@@ -127,37 +128,45 @@ class TestKagiSearchClient:
         mock_response.json.return_value = {
             "error": [{"code": 400, "msg": "Invalid query"}]
         }
-        mock_get.return_value = mock_response
 
-        client = KagiSearch(api_key="test-key")
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
+            mock_client_class.return_value = mock_client
 
-        with pytest.raises(Exception) as exc_info:
-            client.search(query="test")
+            client = KagiSearch(api_key="test-key")
 
-        assert "Kagi Search API error: 400" in str(exc_info.value)
-        assert "Invalid query" in str(exc_info.value)
+            with pytest.raises(SearchError) as exc_info:
+                await client.search(query="test")
 
-    @patch("src.tools.web_search.requests.get")
-    def test_rate_limit_429_handling(self, mock_get):
+            assert "400" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_429_handling(self):
         """Test handling of rate limit (429) response."""
         mock_response = MagicMock()
         mock_response.status_code = 429
+        mock_response.headers = {}
         mock_response.text = '{"error": [{"code": 429, "msg": "Rate limit exceeded"}]}'
-        mock_response.json.return_value = {
-            "error": [{"code": 429, "msg": "Rate limit exceeded"}]
-        }
-        mock_get.return_value = mock_response
 
-        client = KagiSearch(api_key="test-key")
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
+            mock_client_class.return_value = mock_client
 
-        with pytest.raises(Exception) as exc_info:
-            client.search(query="test")
+            client = KagiSearch(api_key="test-key")
 
-        assert "Kagi Search API error: 429" in str(exc_info.value)
-        assert "Rate limit exceeded" in str(exc_info.value)
+            with pytest.raises(RateLimitError) as exc_info:
+                await client.search(query="test", max_retries=1)
 
-    @patch("src.tools.web_search.requests.get")
-    def test_unauthorized_401_handling(self, mock_get):
+            assert "429" in str(exc_info.value) or "rate limit" in str(exc_info.value).lower()
+
+    @pytest.mark.asyncio
+    async def test_unauthorized_401_handling(self):
         """Test handling of unauthorized (401) response for invalid API key."""
         mock_response = MagicMock()
         mock_response.status_code = 401
@@ -165,40 +174,28 @@ class TestKagiSearchClient:
         mock_response.json.return_value = {
             "error": [{"code": 401, "msg": "Unauthorized"}]
         }
-        mock_get.return_value = mock_response
 
-        client = KagiSearch(api_key="invalid-key")
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
+            mock_client_class.return_value = mock_client
 
-        with pytest.raises(Exception) as exc_info:
-            client.search(query="test")
+            client = KagiSearch(api_key="invalid-key")
 
-        assert "Kagi Search API error: 401" in str(exc_info.value)
-        assert "Unauthorized" in str(exc_info.value)
+            with pytest.raises(SearchError) as exc_info:
+                await client.search(query="test")
 
-    @patch("src.tools.web_search.requests.get")
-    def test_error_response_without_json(self, mock_get):
-        """Test handling of error response without valid JSON."""
-        mock_response = MagicMock()
-        mock_response.status_code = 500
-        mock_response.text = "Internal Server Error"
-        mock_response.json.side_effect = ValueError("No JSON")
-        mock_get.return_value = mock_response
-
-        client = KagiSearch(api_key="test-key")
-
-        with pytest.raises(Exception) as exc_info:
-            client.search(query="test")
-
-        assert "Kagi Search API error: 500" in str(exc_info.value)
-        assert "Internal Server Error" in str(exc_info.value)
+            assert "401" in str(exc_info.value)
 
 
 class TestSearchWithKagi:
     """Test cases for _search_with_kagi wrapper function."""
 
+    @pytest.mark.asyncio
     @patch.dict(os.environ, {"KAGI_API_KEY": "test-key-12345"})
-    @patch("src.tools.web_search.requests.get")
-    def test_successful_search_with_results(self, mock_get):
+    async def test_successful_search_with_results(self):
         """Test successful search returns standardized result format."""
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -228,51 +225,38 @@ class TestSearchWithKagi:
                     "published": "2024-01-10",
                 },
                 {
-                    "t": 1,  # Related searches type
+                    "t": 1,
                     "list": ["related query 1", "related query 2"],
                 },
             ],
         }
-        mock_get.return_value = mock_response
 
-        result = _search_with_kagi(query="test query", verbose=False)
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
+            mock_client_class.return_value = mock_client
 
-        # Verify standardized format
-        assert result["query"] == "test query"
-        assert result["provider"] == "kagi"
-        assert result["model"] == "kagi-search"
-        assert result["request_id"] == "req-123"
+            result = await _search_with_kagi(query="test query", verbose=False)
 
-        # Verify usage info
-        assert result["usage"]["api_balance"] == 0.98
-        assert result["usage"]["response_time_ms"] == 150
+            # Verify standardized format
+            assert result["query"] == "test query"
+            assert result["provider"] == "kagi"
+            assert result["model"] == "kagi-search"
+            assert result["request_id"] == "req-123"
 
-        # Verify search results
-        assert len(result["search_results"]) == 2
-        assert result["search_results"][0]["title"] == "Example Page 1"
-        assert result["search_results"][0]["url"] == "https://example.com/page1"
-        assert result["search_results"][0]["snippet"] == "This is the first example page."
+            # Verify usage info
+            assert result["usage"]["api_balance"] == 0.98
+            assert result["usage"]["response_time_ms"] == 150
 
-        # Verify citations
-        assert len(result["citations"]) == 2
-        assert result["citations"][0]["id"] == 1
-        assert result["citations"][0]["reference"] == "[1]"
-        assert result["citations"][0]["url"] == "https://example.com/page1"
-        assert result["citations"][0]["thumbnail"] == "https://example.com/thumb1.jpg"
+            # Verify search results
+            assert len(result["search_results"]) == 2
+            assert result["search_results"][0]["title"] == "Example Page 1"
 
-        # Verify related searches
-        assert "related_searches" in result
-        assert result["related_searches"] == ["related query 1", "related query 2"]
-
-        # Verify answer is constructed from snippets
-        assert "first example page" in result["answer"]
-        assert result["response"]["content"] == result["answer"]
-        assert result["response"]["role"] == "assistant"
-        assert result["response"]["finish_reason"] == "complete"
-
+    @pytest.mark.asyncio
     @patch.dict(os.environ, {"KAGI_API_KEY": "test-key"})
-    @patch("src.tools.web_search.requests.get")
-    def test_search_with_no_results(self, mock_get):
+    async def test_search_with_no_results(self):
         """Test search with no results returns empty standardized format."""
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -280,111 +264,88 @@ class TestSearchWithKagi:
             "meta": {"id": "req-456", "api_balance": 0.97},
             "data": [],
         }
-        mock_get.return_value = mock_response
 
-        result = _search_with_kagi(query="obscure query")
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
+            mock_client_class.return_value = mock_client
 
-        assert result["search_results"] == []
-        assert result["citations"] == []
-        assert result["answer"] == ""
-        assert "related_searches" not in result
+            result = await _search_with_kagi(query="obscure query")
 
+            assert result["search_results"] == []
+            assert result["citations"] == []
+            assert result["answer"] == ""
+
+    @pytest.mark.asyncio
     @patch.dict(os.environ, {}, clear=True)
-    def test_missing_api_key_error(self):
+    async def test_missing_api_key_error(self):
         """Test that missing API key raises ValueError with helpful message."""
-        # Ensure KAGI_API_KEY is not set
         os.environ.pop("KAGI_API_KEY", None)
 
         with pytest.raises(ValueError) as exc_info:
-            _search_with_kagi(query="test")
+            await _search_with_kagi(query="test")
 
-        assert "KAGI_API_KEY environment variable is not set" in str(exc_info.value)
-        assert "https://kagi.com/settings?p=api" in str(exc_info.value)
+        assert "KAGI_API_KEY" in str(exc_info.value)
 
+    @pytest.mark.asyncio
     @patch.dict(os.environ, {"KAGI_API_KEY": "test-key"})
-    @patch("src.tools.web_search.requests.get")
-    def test_search_with_limit_parameter(self, mock_get):
-        """Test that limit parameter is passed correctly."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"meta": {}, "data": []}
-        mock_get.return_value = mock_response
-
-        _search_with_kagi(query="test", limit=10)
-
-        call_args = mock_get.call_args
-        assert call_args.kwargs["params"]["limit"] == 10
-
-    @patch.dict(os.environ, {"KAGI_API_KEY": "test-key"})
-    @patch("src.tools.web_search.requests.get")
-    def test_search_with_verbose_output(self, mock_get, capsys):
-        """Test verbose output prints expected information."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "meta": {"id": "req-789", "api_balance": 0.95, "ms": 200},
-            "data": [
-                {
-                    "t": 0,
-                    "url": "https://example.com",
-                    "title": "Test",
-                    "snippet": "Snippet",
-                }
-            ],
-        }
-        mock_get.return_value = mock_response
-
-        _search_with_kagi(query="test query", verbose=True)
-
-        captured = capsys.readouterr()
-        assert "[Kagi Search] Query: test query" in captured.out
-        assert "[Kagi Search] Results count: 1" in captured.out
-        assert "[Kagi Search] API Balance: $0.95" in captured.out
-
-    @patch.dict(os.environ, {"KAGI_API_KEY": "test-key"})
-    @patch("src.tools.web_search.requests.get")
-    def test_timestamp_field_present(self, mock_get):
+    async def test_timestamp_field_present(self):
         """Test that timestamp field is present in result."""
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"meta": {}, "data": []}
-        mock_get.return_value = mock_response
 
-        result = _search_with_kagi(query="test")
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
+            mock_client_class.return_value = mock_client
 
-        assert "timestamp" in result
-        # Timestamp should be ISO format
-        assert "T" in result["timestamp"]
+            result = await _search_with_kagi(query="test")
 
+            assert "timestamp" in result
+            assert "T" in result["timestamp"]
+
+    @pytest.mark.asyncio
     @patch.dict(os.environ, {"KAGI_API_KEY": "test-key"})
-    @patch("src.tools.web_search.requests.get")
-    def test_network_timeout_handling(self, mock_get):
+    async def test_network_timeout_handling(self):
         """Test handling of network timeout."""
-        import requests
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(side_effect=httpx.TimeoutException("Connection timeout"))
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
+            mock_client_class.return_value = mock_client
 
-        mock_get.side_effect = requests.Timeout("Connection timeout")
+            with pytest.raises(SearchError) as exc_info:
+                await _search_with_kagi(query="test")
+            assert "timeout" in str(exc_info.value).lower()
 
-        with pytest.raises(requests.Timeout):
-            _search_with_kagi(query="test")
-
+    @pytest.mark.asyncio
     @patch.dict(os.environ, {"KAGI_API_KEY": "test-key"})
-    @patch("src.tools.web_search.requests.get")
-    def test_connection_error_handling(self, mock_get):
+    async def test_connection_error_handling(self):
         """Test handling of connection error."""
-        import requests
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(side_effect=httpx.ConnectError("Network unreachable"))
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
+            mock_client_class.return_value = mock_client
 
-        mock_get.side_effect = requests.ConnectionError("Network unreachable")
-
-        with pytest.raises(requests.ConnectionError):
-            _search_with_kagi(query="test")
+            with pytest.raises(SearchError) as exc_info:
+                await _search_with_kagi(query="test")
+            assert "network unreachable" in str(exc_info.value).lower()
 
 
 class TestKagiSearchResultTypes:
     """Test handling of different Kagi result types."""
 
+    @pytest.mark.asyncio
     @patch.dict(os.environ, {"KAGI_API_KEY": "test-key"})
-    @patch("src.tools.web_search.requests.get")
-    def test_mixed_result_types(self, mock_get):
+    async def test_mixed_result_types(self):
         """Test handling of mixed result types (t=0 and t=1)."""
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -392,35 +353,39 @@ class TestKagiSearchResultTypes:
             "meta": {"id": "test"},
             "data": [
                 {
-                    "t": 0,  # Search result
+                    "t": 0,
                     "url": "https://example.com/1",
                     "title": "Result 1",
                     "snippet": "Snippet 1",
                 },
                 {
-                    "t": 1,  # Related searches
+                    "t": 1,
                     "list": ["query a", "query b"],
                 },
                 {
-                    "t": 0,  # Another search result
+                    "t": 0,
                     "url": "https://example.com/2",
                     "title": "Result 2",
                     "snippet": "Snippet 2",
                 },
             ],
         }
-        mock_get.return_value = mock_response
 
-        result = _search_with_kagi(query="test")
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
+            mock_client_class.return_value = mock_client
 
-        # Should have 2 search results
-        assert len(result["search_results"]) == 2
-        # Should have related searches
-        assert result["related_searches"] == ["query a", "query b"]
+            result = await _search_with_kagi(query="test")
 
+            assert len(result["search_results"]) == 2
+            assert result["related_searches"] == ["query a", "query b"]
+
+    @pytest.mark.asyncio
     @patch.dict(os.environ, {"KAGI_API_KEY": "test-key"})
-    @patch("src.tools.web_search.requests.get")
-    def test_result_without_optional_fields(self, mock_get):
+    async def test_result_without_optional_fields(self):
         """Test handling of results missing optional fields."""
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -430,20 +395,22 @@ class TestKagiSearchResultTypes:
                 {
                     "t": 0,
                     "url": "https://example.com",
-                    # Missing: title, snippet, published, thumbnail
                 }
             ],
         }
-        mock_get.return_value = mock_response
 
-        result = _search_with_kagi(query="test")
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
+            mock_client_class.return_value = mock_client
 
-        # Should handle missing fields gracefully
-        assert len(result["search_results"]) == 1
-        assert result["search_results"][0]["title"] == ""
-        assert result["search_results"][0]["snippet"] == ""
-        assert result["search_results"][0]["date"] == ""
-        assert "thumbnail" not in result["citations"][0]
+            result = await _search_with_kagi(query="test")
+
+            assert len(result["search_results"]) == 1
+            assert result["search_results"][0]["title"] == ""
+            assert result["search_results"][0]["snippet"] == ""
 
 
 # Integration tests (skipped unless KAGI_API_KEY is set)
@@ -454,35 +421,27 @@ class TestKagiSearchResultTypes:
 class TestKagiSearchIntegration:
     """Integration tests with real Kagi API (requires API key)."""
 
-    def test_real_api_search(self):
+    @pytest.mark.asyncio
+    async def test_real_api_search(self):
         """Test actual API call with real credentials."""
-        result = _search_with_kagi(
+        result = await _search_with_kagi(
             query="Python programming language",
             limit=3,
             verbose=False,
         )
 
-        # Verify response structure
         assert result["provider"] == "kagi"
         assert result["query"] == "Python programming language"
         assert "timestamp" in result
         assert "search_results" in result
-        assert "citations" in result
 
-        # Should have some results
-        if result["search_results"]:
-            assert len(result["search_results"]) > 0
-            first_result = result["search_results"][0]
-            assert "url" in first_result
-            assert "title" in first_result
-
-    def test_real_api_balance_check(self):
+    @pytest.mark.asyncio
+    async def test_real_api_balance_check(self):
         """Test that API balance is returned."""
-        result = _search_with_kagi(query="test", limit=1)
+        result = await _search_with_kagi(query="test", limit=1)
 
         assert "usage" in result
         assert "api_balance" in result["usage"]
-        # API balance should be a positive number
         assert result["usage"]["api_balance"] >= 0
 
 

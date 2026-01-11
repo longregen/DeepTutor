@@ -33,12 +33,10 @@ from src.logging import get_logger
 from src.services.config import get_knowledge_base_dir, load_config_with_main
 from src.services.llm import get_llm_config
 
-# Initialize logger (respects DEEPTUTOR_DATA_DIR env var)
 logger = get_logger("Knowledge", level="INFO")
 
 router = APIRouter()
 
-# Use get_knowledge_base_dir() which respects DEEPTUTOR_DATA_DIR env var
 _kb_base_dir = get_knowledge_base_dir()
 
 # Lazy initialization

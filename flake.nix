@@ -97,12 +97,25 @@
           PYTHONPATH="$PWD:$PYTHONPATH" pytest tests/integration/test_groq_llm.py -v --tb=short "$@"
         '';
 
+        # Pre-built frontend
+        frontendPackage = import ./nix/frontend.nix {
+          inherit pkgs;
+          src = ./web;
+          apiBase = "";  # Same-origin: API at /api
+        };
+
         # Application wrappers
         deeptutor-app = pkgs.writeShellScriptBin "deeptutor" ''
           set -e
           SOURCE_DIR="''${DEEPTUTOR_SOURCE_DIR:-${self}}"
-          export DEEPTUTOR_DATA_DIR="''${DEEPTUTOR_DATA_DIR:-$HOME/.local/share/deeptutor}"
+          export DEEPTUTOR_DATA_DIR="''${DEEPTUTOR_DATA_DIR:-/var/lib/deeptutor}"
+          export DEEPTUTOR_CONFIG_DIR="''${DEEPTUTOR_CONFIG_DIR:-$DEEPTUTOR_DATA_DIR/config}"
           export PYTHONPATH="$SOURCE_DIR:$PYTHONPATH"
+
+          BACKEND_HOST="''${BACKEND_HOST:-127.0.0.1}"
+          BACKEND_PORT="''${BACKEND_PORT:-8001}"
+          FRONTEND_HOST="''${FRONTEND_HOST:-127.0.0.1}"
+          FRONTEND_PORT="''${FRONTEND_PORT:-3782}"
 
           # Load .env if present
           if [ -f "$SOURCE_DIR/.env" ]; then
@@ -111,22 +124,61 @@
             set +a
           fi
 
-          # Ensure data directory exists
-          mkdir -p "$DEEPTUTOR_DATA_DIR/user"
+          # Ensure data directories exist
+          mkdir -p "$DEEPTUTOR_DATA_DIR/user/logs"
+          mkdir -p "$DEEPTUTOR_DATA_DIR/knowledge_bases"
+          mkdir -p "$DEEPTUTOR_CONFIG_DIR"
+
+          # Copy config files if they don't exist
+          if [ ! -f "$DEEPTUTOR_CONFIG_DIR/main.yaml" ]; then
+            echo "Initializing config files..."
+            cp "$SOURCE_DIR/config/"*.yaml "$DEEPTUTOR_CONFIG_DIR/" 2>/dev/null || true
+          fi
 
           echo "DeepTutor - AI-powered personalized learning assistant"
           echo "======================================================="
           echo "Data directory: $DEEPTUTOR_DATA_DIR"
+          echo "Config directory: $DEEPTUTOR_CONFIG_DIR"
           echo ""
 
+          cleanup() {
+            echo "Shutting down..."
+            kill $BACKEND_PID $FRONTEND_PID 2>/dev/null || true
+            wait
+          }
+          trap cleanup EXIT INT TERM
+
+          # Start backend
+          echo "Starting backend on $BACKEND_HOST:$BACKEND_PORT..."
           cd "$SOURCE_DIR"
-          exec ${pythonWithPackages}/bin/python scripts/start_web.py "$@"
+          ${pythonWithPackages}/bin/uvicorn src.api.main:app \
+            --host "$BACKEND_HOST" \
+            --port "$BACKEND_PORT" &
+          BACKEND_PID=$!
+
+          # Start frontend using pre-built package
+          echo "Starting frontend on $FRONTEND_HOST:$FRONTEND_PORT..."
+          cd ${frontendPackage}
+          PORT=$FRONTEND_PORT HOST=$FRONTEND_HOST \
+            ${pkgs.nodejs_20}/bin/node node_modules/next/dist/bin/next start \
+            -p $FRONTEND_PORT -H $FRONTEND_HOST &
+          FRONTEND_PID=$!
+
+          echo ""
+          echo "DeepTutor is running!"
+          echo "  Frontend: http://$FRONTEND_HOST:$FRONTEND_PORT"
+          echo "  Backend:  http://$BACKEND_HOST:$BACKEND_PORT"
+          echo ""
+          echo "Press Ctrl+C to stop."
+
+          wait
         '';
 
         deeptutor-backend = pkgs.writeShellScriptBin "deeptutor-backend" ''
           set -e
           SOURCE_DIR="''${DEEPTUTOR_SOURCE_DIR:-${self}}"
-          export DEEPTUTOR_DATA_DIR="''${DEEPTUTOR_DATA_DIR:-$HOME/.local/share/deeptutor}"
+          export DEEPTUTOR_DATA_DIR="''${DEEPTUTOR_DATA_DIR:-/var/lib/deeptutor}"
+          export DEEPTUTOR_CONFIG_DIR="''${DEEPTUTOR_CONFIG_DIR:-$DEEPTUTOR_DATA_DIR/config}"
           export PYTHONPATH="$SOURCE_DIR:$PYTHONPATH"
 
           # Load .env if present
@@ -136,7 +188,14 @@
             set +a
           fi
 
-          mkdir -p "$DEEPTUTOR_DATA_DIR/user"
+          mkdir -p "$DEEPTUTOR_DATA_DIR/user/logs"
+          mkdir -p "$DEEPTUTOR_DATA_DIR/knowledge_bases"
+          mkdir -p "$DEEPTUTOR_CONFIG_DIR"
+
+          # Copy config files if they don't exist
+          if [ ! -f "$DEEPTUTOR_CONFIG_DIR/main.yaml" ]; then
+            cp "$SOURCE_DIR/config/"*.yaml "$DEEPTUTOR_CONFIG_DIR/" 2>/dev/null || true
+          fi
 
           cd "$SOURCE_DIR"
           exec ${pythonWithPackages}/bin/uvicorn src.api.main:app \
@@ -145,10 +204,22 @@
             "$@"
         '';
 
+        deeptutor-frontend = pkgs.writeShellScriptBin "deeptutor-frontend" ''
+          set -e
+          FRONTEND_HOST="''${FRONTEND_HOST:-127.0.0.1}"
+          FRONTEND_PORT="''${FRONTEND_PORT:-3782}"
+
+          echo "Starting DeepTutor frontend on $FRONTEND_HOST:$FRONTEND_PORT..."
+          cd ${frontendPackage}
+          exec ${pkgs.nodejs_20}/bin/node node_modules/next/dist/bin/next start \
+            -p $FRONTEND_PORT -H $FRONTEND_HOST
+        '';
+
         deeptutor-cli = pkgs.writeShellScriptBin "deeptutor-cli" ''
           set -e
           SOURCE_DIR="''${DEEPTUTOR_SOURCE_DIR:-${self}}"
-          export DEEPTUTOR_DATA_DIR="''${DEEPTUTOR_DATA_DIR:-$HOME/.local/share/deeptutor}"
+          export DEEPTUTOR_DATA_DIR="''${DEEPTUTOR_DATA_DIR:-/var/lib/deeptutor}"
+          export DEEPTUTOR_CONFIG_DIR="''${DEEPTUTOR_CONFIG_DIR:-$DEEPTUTOR_DATA_DIR/config}"
           export PYTHONPATH="$SOURCE_DIR:$PYTHONPATH"
 
           # Load .env if present
@@ -158,7 +229,8 @@
             set +a
           fi
 
-          mkdir -p "$DEEPTUTOR_DATA_DIR/user"
+          mkdir -p "$DEEPTUTOR_DATA_DIR/user/logs"
+          mkdir -p "$DEEPTUTOR_CONFIG_DIR"
 
           cd "$SOURCE_DIR"
           exec ${pythonWithPackages}/bin/python scripts/start.py "$@"
@@ -191,6 +263,7 @@
           default = deeptutor-app;
           deeptutor = deeptutor-app;
           backend = deeptutor-backend;
+          frontend = deeptutor-frontend;
           cli = deeptutor-cli;
 
           # Test runner
@@ -201,11 +274,8 @@
             ${pythonWithPackages}/bin/python -m pytest tests/ -v --tb=short "$@"
           '';
 
-          # Frontend (Next.js)
-          frontend = import ./nix/frontend.nix {
-            inherit pkgs;
-            src = ./web;
-          };
+          # Pre-built frontend package (for use by other derivations)
+          frontend-dist = frontendPackage;
 
           # Python packages (all from overlay)
           inherit
@@ -253,13 +323,25 @@
             type = "app";
             program = "${deeptutor-backend}/bin/deeptutor-backend";
           };
+          frontend = {
+            type = "app";
+            program = "${deeptutor-frontend}/bin/deeptutor-frontend";
+          };
           cli = {
             type = "app";
             program = "${deeptutor-cli}/bin/deeptutor-cli";
           };
           test = {
             type = "app";
-            program = "${testScript}/bin/run-tests";
+            program = "${pkgs.writeShellScriptBin "deeptutor-test" ''
+              cd ${self}
+              export DEEPTUTOR_DATA_DIR="''${DEEPTUTOR_DATA_DIR:-/tmp/deeptutor-test}"
+              export DEEPTUTOR_CONFIG_DIR="$DEEPTUTOR_DATA_DIR/config"
+              mkdir -p "$DEEPTUTOR_DATA_DIR/user/logs"
+              mkdir -p "$DEEPTUTOR_CONFIG_DIR"
+              cp ${self}/config/*.yaml "$DEEPTUTOR_CONFIG_DIR/" 2>/dev/null || true
+              ${pythonWithPackages}/bin/python -m pytest tests/ -v --tb=short "$@"
+            ''}/bin/deeptutor-test";
           };
         };
       }

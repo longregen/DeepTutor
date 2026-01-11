@@ -25,7 +25,7 @@ _project_root = Path(__file__).resolve().parent.parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
-from src.services.config import get_user_dir
+from src.services.config import get_log_dir, get_user_dir
 
 
 class LogLevel(Enum):
@@ -78,11 +78,9 @@ class ConsoleFormatter(logging.Formatter):
         # Get symbol (can be overridden via record.symbol)
         symbol = getattr(record, "symbol", self.SYMBOLS.get(record.levelname, "●"))
 
-        # Get color
         level = getattr(record, "display_level", record.levelname)
         color = self.COLORS.get(level, self.COLORS["INFO"])
 
-        # Format message
         message = record.getMessage()
 
         # Build output: [Module]    ● Message
@@ -153,27 +151,24 @@ class Logger:
         self.logger.handlers.clear()
         self.logger.propagate = False
 
-        # Priority: DEEPTUTOR_DATA_DIR env var > explicit log_dir > default
         if log_dir is None:
-            # Default: Use get_user_dir() / "logs" which respects DEEPTUTOR_DATA_DIR env var
-            log_dir = get_user_dir() / "logs"
+            log_dir = get_log_dir()
         else:
             log_dir = Path(log_dir)
-            # If relative path, resolve it relative to project root
+            # If relative path, resolve it relative to user data dir
+            # (project root may be read-only in containerized/Nix deployments)
             if not log_dir.is_absolute():
-                log_dir = _project_root / log_dir
+                log_dir = get_user_dir() / log_dir.name
 
         log_dir.mkdir(parents=True, exist_ok=True)
         self.log_dir = log_dir
 
-        # Console handler
         if console_output:
             console_handler = logging.StreamHandler(sys.stdout)
             console_handler.setLevel(self.level)
             console_handler.setFormatter(ConsoleFormatter())
             self.logger.addHandler(console_handler)
 
-        # File handler
         if file_output:
             timestamp = datetime.now().strftime("%Y%m%d")
             log_file = log_dir / f"ai_tutor_{timestamp}.log"
@@ -614,44 +609,15 @@ def get_logger(
         level: Log level
         console_output: Enable console output
         file_output: Enable file output
-        log_dir: Log directory (if None, will try DEEPTUTOR_DATA_DIR env var, then config/main.yaml)
+        log_dir: Log directory (if None, uses DEEPTUTOR_LOG_DIR or default)
 
     Returns:
         Logger instance
     """
     global _loggers
 
-    # If log_dir not provided, check env var first, then config
     if log_dir is None:
-        import os
-
-        # Priority 1: DEEPTUTOR_DATA_DIR environment variable (for containerized deployments)
-        base_data_dir = os.environ.get("DEEPTUTOR_DATA_DIR")
-        if base_data_dir:
-            log_dir = str(Path(base_data_dir) / "user" / "logs")
-        else:
-            # Priority 2: try to load from config
-            try:
-                from src.services.config import get_path_from_config, load_config_with_main
-
-                config = load_config_with_main(
-                    "solve_config.yaml", _project_root
-                )  # Use any config to get main.yaml
-                log_dir = get_path_from_config(config, "user_log_dir") or config.get("paths", {}).get(
-                    "user_log_dir"
-                )
-                if log_dir:
-                    # Convert relative path to absolute based on project root
-                    log_dir_path = Path(log_dir)
-                    if not log_dir_path.is_absolute():
-                        # Remove leading ./ if present
-                        log_dir_str = str(log_dir_path).lstrip("./")
-                        log_dir = str(_project_root / log_dir_str)
-                    else:
-                        log_dir = str(log_dir_path)
-            except Exception:
-                # Fallback to default
-                pass
+        log_dir = get_log_dir()
 
     if name not in _loggers:
         _loggers[name] = Logger(

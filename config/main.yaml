@@ -1,15 +1,5 @@
 system:
   language: en
-paths:
-  user_data_dir: ./data/user
-  knowledge_bases_dir: ./data/knowledge_bases
-  user_log_dir: ./data/user/logs
-  performance_log_dir: ./data/user/performance
-  guide_output_dir: ./data/user/guide
-  question_output_dir: ./data/user/question
-  research_output_dir: ./data/user/research/cache
-  research_reports_dir: ./data/user/research/reports
-  solve_output_dir: ./data/user/solve
 tools:
   rag_tool:
     kb_base_dir: ./data/knowledge_bases

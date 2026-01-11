@@ -116,6 +116,18 @@ in
     };
 
     # ============================================================================
+    # Language detection
+    # ============================================================================
+    fasttext-predict = pyFinal.callPackage ./fasttext-predict {};
+    robust-downloader = pyFinal.callPackage ./robust-downloader {};
+    fast-langdetect = pyFinal.callPackage ./fast-langdetect {
+      inherit (pyFinal) robust-downloader fasttext-predict;
+    };
+    modelscope = pyFinal.callPackage ./modelscope {};
+    qwen-vl-utils = pyFinal.callPackage ./qwen-vl-utils {};
+    mineru-vl-utils = pyFinal.callPackage ./mineru-vl-utils {};
+
+    # ============================================================================
     # Document processing
     # ============================================================================
     # Not in nixpkgs: Specialized document parsing libraries not yet packaged
@@ -127,7 +139,9 @@ in
       system-cmake = prev.cmake;
       inherit (prev) pkg-config nlohmann_json;
     };
-    mineru = pyFinal.callPackage ./mineru {};
+    mineru = pyFinal.callPackage ./mineru {
+      inherit (pyFinal) fast-langdetect modelscope qwen-vl-utils mineru-vl-utils;
+    };
 
     # ============================================================================
     # Visualization

@@ -28,6 +28,7 @@ from src.agents.research.agents import (
 from src.agents.research.data_structures import DynamicTopicQueue
 from src.agents.research.utils.citation_manager import CitationManager
 from src.logging import get_logger
+from src.services.config import get_user_dir
 from src.tools.code_executor import run_code
 from src.tools.paper_search_tool import PaperSearchTool
 from src.tools.query_item_tool import query_numbered_item
@@ -78,10 +79,10 @@ class ResearchPipeline:
         else:
             self.research_id = research_id
 
-        # Set directories
-        system_config = config.get("system", {})
-        self.cache_dir = Path(system_config.get("output_base_dir", "./cache")) / self.research_id
-        self.reports_dir = Path(system_config.get("reports_dir", "./reports"))
+        # Set directories - use get_user_dir() to respect DEEPTUTOR_DATA_DIR
+        user_dir = get_user_dir()
+        self.cache_dir = user_dir / "research" / "cache" / self.research_id
+        self.reports_dir = user_dir / "research" / "reports"
 
         # Create directories
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -122,12 +123,7 @@ class ResearchPipeline:
 
     def _init_logger(self):
         """Initialize unified logging system"""
-        # Get log_dir from config paths (user_log_dir from main.yaml)
-        log_dir = self.config.get("paths", {}).get("user_log_dir") or self.config.get(
-            "logging", {}
-        ).get("log_dir")
-
-        self.logger = get_logger(name="Research", log_dir=log_dir)
+        self.logger = get_logger(name="Research")
         self.logger.success("Logger initialized")
 
     def _init_agents(self):

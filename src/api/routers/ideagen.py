@@ -20,15 +20,12 @@ from src.agents.ideagen.material_organizer_agent import MaterialOrganizerAgent
 from src.api.utils.notebook_manager import NotebookManager
 from src.api.utils.task_id_manager import TaskIDManager
 from src.logging import get_logger
-from src.services.config import load_config_with_main
 from src.services.llm import get_llm_config
 
 router = APIRouter()
 
-# Initialize logger with config
-config = load_config_with_main("solve_config.yaml", _project_root)  # Use any config to get main.yaml
-log_dir = config.get("paths", {}).get("user_log_dir") or config.get("logging", {}).get("log_dir")
-logger = get_logger("IdeaGen", level="INFO", log_dir=log_dir)
+# Initialize logger (uses DEEPTUTOR_DATA_DIR env var if set)
+logger = get_logger("IdeaGen", level="INFO")
 
 
 class IdeaGenRequest(BaseModel):

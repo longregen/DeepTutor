@@ -101,13 +101,9 @@ class AgentCoordinator:
         self.output_dir = output_dir
 
         # Load configuration (with main.yaml merge) first
-        self.config = load_config_with_main("question_config.yaml", _project_root)
+        self.config = load_config_with_main("question_config.yaml")
 
-        # Initialize logger (from config)
-        log_dir = self.config.get("paths", {}).get("user_log_dir") or self.config.get(
-            "logging", {}
-        ).get("log_dir")
-        self.logger: Logger = get_logger("QuestionGen", log_dir=log_dir)
+        self.logger: Logger = get_logger("QuestionGen")
 
         # Override max_rounds from config if available
         question_cfg = self.config.get("question", {})

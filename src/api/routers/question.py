@@ -15,12 +15,10 @@ from src.api.utils.task_id_manager import TaskIDManager
 from src.logging import get_logger
 from src.services.config import get_user_dir, load_config_with_main
 
-# Setup module logger (respects DEEPTUTOR_DATA_DIR env var)
 logger = get_logger("QuestionAPI")
 
 router = APIRouter()
 
-# Output directory for mimic mode (respects DEEPTUTOR_DATA_DIR env var)
 MIMIC_OUTPUT_DIR = get_user_dir() / "question" / "mimic_papers"
 
 

@@ -22,12 +22,10 @@ from src.api.utils.history import ActivityType, history_manager
 from src.api.utils.log_interceptor import LogInterceptor
 from src.api.utils.task_id_manager import TaskIDManager
 from src.logging import get_logger
-from src.services.config import get_user_dir, load_config_with_main
+from src.services.config import get_user_dir
 
-# Initialize logger with config
-config = load_config_with_main("solve_config.yaml", _project_root)
-log_dir = config.get("paths", {}).get("user_log_dir") or config.get("logging", {}).get("log_dir")
-logger = get_logger("SolveAPI", level="INFO", log_dir=log_dir)
+# Initialize logger (uses DEEPTUTOR_DATA_DIR env var if set)
+logger = get_logger("SolveAPI", level="INFO")
 
 router = APIRouter()
 

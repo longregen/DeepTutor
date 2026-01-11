@@ -4,6 +4,7 @@ InvestigateAgent - Investigator
 Generates query actions and calls tools based on current memory and reflections.
 """
 
+import asyncio
 from pathlib import Path
 import sys
 from typing import Any
@@ -137,45 +138,70 @@ class InvestigateAgent(BaseAgent):
                 "actions": [],
             }
 
-        # 6. Execute multiple tool calls (limited by max_actions_per_round)
+        # 6. Execute multiple tool calls in parallel (limited by max_actions_per_round)
         knowledge_ids: list[str] = []
         executed_actions: list[dict[str, Any]] = []
 
         # Limit number of actions per round based on config
         tool_plans_to_execute = tool_plans[: self.max_actions_per_round]
 
-        for plan in tool_plans_to_execute:
-            tool_type = plan.get("tool")
-            if not tool_type:
-                continue
+        # Filter out invalid/none plans and prepare execution tasks
+        valid_plans = [
+            plan for plan in tool_plans_to_execute
+            if plan.get("tool") and plan.get("tool") != "none"
+        ]
 
-            query = plan.get("query", "")
-            identifier = plan.get("identifier")
+        if valid_plans:
+            # Execute all tool calls in parallel
+            async def execute_with_plan(plan: dict) -> tuple[dict, KnowledgeItem | None]:
+                """Execute a single plan and return both plan info and result"""
+                tool_type = plan.get("tool")
+                query = plan.get("query", "")
+                identifier = plan.get("identifier")
 
-            if tool_type == "none":
-                continue
+                knowledge_item = await self._execute_single_action(
+                    tool_selection=tool_type,
+                    query=query,
+                    identifier=identifier,
+                    kb_name=kb_name,
+                    output_dir=output_dir,
+                    citation_memory=citation_memory,
+                )
 
-            knowledge_item = await self._execute_single_action(
-                tool_selection=tool_type,
-                query=query,
-                identifier=identifier,
-                kb_name=kb_name,
-                output_dir=output_dir,
-                citation_memory=citation_memory,
-            )
-
-            executed_actions.append(
-                {
+                action_info = {
                     "tool_type": tool_type,
                     "query": query,
                     "identifier": identifier,
                     "cite_id": knowledge_item.cite_id if knowledge_item else None,
                 }
+
+                return action_info, knowledge_item
+
+            # Run all tool calls concurrently
+            results = await asyncio.gather(
+                *[execute_with_plan(plan) for plan in valid_plans],
+                return_exceptions=True
             )
 
-            if knowledge_item:
-                memory.add_knowledge(knowledge_item)
-                knowledge_ids.append(knowledge_item.cite_id)
+            # Process results, handling any exceptions gracefully
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    plan = valid_plans[i]
+                    self.logger.warning(f"Tool execution failed for {plan.get('tool')}: {result}")
+                    executed_actions.append({
+                        "tool_type": plan.get("tool"),
+                        "query": plan.get("query", ""),
+                        "identifier": plan.get("identifier"),
+                        "cite_id": None,
+                        "error": str(result),
+                    })
+                else:
+                    action_info, knowledge_item = result
+                    executed_actions.append(action_info)
+
+                    if knowledge_item:
+                        memory.add_knowledge(knowledge_item)
+                        knowledge_ids.append(knowledge_item.cite_id)
 
         if knowledge_ids and output_dir:
             memory.save()

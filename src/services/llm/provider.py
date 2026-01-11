@@ -13,7 +13,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from src.services.config import get_user_dir
 
-# Define storage path (respects DEEPTUTOR_DATA_DIR env var)
 USER_DATA_DIR = get_user_dir()
 PROVIDERS_FILE = USER_DATA_DIR / "llm_providers.json"
 

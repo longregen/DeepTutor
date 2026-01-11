@@ -57,8 +57,7 @@ def query_numbered_item(
         try:
             from src.services.config import load_config_with_main
 
-            project_root = Path(__file__).parent.parent.parent
-            config = load_config_with_main("main.yaml", project_root)
+            config = load_config_with_main("main.yaml")
             max_results = config.get("tools", {}).get("query_item", {}).get("max_results", 5)
         except Exception:
             max_results = 5  # Default value

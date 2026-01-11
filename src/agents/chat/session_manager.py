@@ -39,10 +39,9 @@ class SessionManager:
 
         Args:
             base_dir: Base directory for session storage.
-                     Defaults to user data dir (respects DEEPTUTOR_DATA_DIR env var)
+                     Defaults to user data dir.
         """
         if base_dir is None:
-            # Use get_user_dir() which respects DEEPTUTOR_DATA_DIR env var
             base_dir_path = get_user_dir()
         else:
             base_dir_path = Path(base_dir)

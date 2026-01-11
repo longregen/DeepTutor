@@ -73,7 +73,6 @@ class AITutorStarter:
 
     def _load_available_kbs(self) -> list:
         """Load available knowledge base list"""
-        # Use get_knowledge_base_dir() which respects DEEPTUTOR_DATA_DIR env var
         kb_base_dir = get_knowledge_base_dir()
         if not kb_base_dir.exists():
             return ["ai_textbook"]  # Default knowledge base
@@ -452,7 +451,7 @@ class AITutorStarter:
             from src.services.config import load_config_with_main
 
             # Load configuration using unified config loader
-            config = load_config_with_main("main.yaml", project_root)
+            config = load_config_with_main("main.yaml")
 
             # Extract research.* configs to top level (ResearchPipeline expects flat structure)
             research_config = config.get("research", {})
@@ -469,7 +468,6 @@ class AITutorStarter:
             if "presets" not in config:
                 config["presets"] = research_config.get("presets", {}).copy()
 
-            # Set output paths (respects DEEPTUTOR_DATA_DIR env var)
             if "system" not in config:
                 config["system"] = {}
             output_base = get_user_dir() / "research"

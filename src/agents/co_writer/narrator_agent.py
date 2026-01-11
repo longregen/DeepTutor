@@ -28,7 +28,6 @@ from src.services.llm import get_llm_config
 from src.services.prompt import get_prompt_manager
 from src.services.tts import get_tts_config
 
-# Initialize logger (respects DEEPTUTOR_DATA_DIR env var)
 logger = get_logger("Narrator")
 
 # Import shared stats from edit_agent
@@ -38,7 +37,6 @@ from .edit_agent import get_stats
 # Notes:
 # - Consistent with EditAgent's history records, both use user/co-writer as root directory
 # - Audio files are stored separately in audio subdirectory for static access via /api/outputs
-# - Uses get_user_dir() which respects DEEPTUTOR_DATA_DIR env var
 USER_DIR = get_user_dir() / "co-writer" / "audio"
 
 
@@ -70,7 +68,7 @@ class NarratorAgent:
 
         # Load main config file to get TTS default settings
         try:
-            config = load_config_with_main("solve_config.yaml", _project_root)
+            config = load_config_with_main("solve_config.yaml")
             self.tts_settings = config.get("tts", {})
             self.default_voice = self.tts_settings.get("default_voice", "alloy")
             logger.info(f"TTS settings loaded from config: voice={self.default_voice}")

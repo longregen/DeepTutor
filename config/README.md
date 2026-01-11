@@ -79,7 +79,6 @@ max_tokens = params["max_tokens"]    # 8192
 
 - **Server Configuration**: Backend and frontend port settings
 - **System Settings**: System-wide language configuration
-- **Path Configuration**: Data directory paths for all modules
 - **Tool Configuration**: General tool settings (RAG, code execution, web search, query item)
 - **Logging Configuration**: Logging levels, file output, console output, LightRAG forwarding
 - **TTS Configuration**: Text-to-speech default voice
@@ -95,18 +94,6 @@ server:
 
 system:
   language: en  # "zh" or "en"
-
-paths:
-  user_data_dir: ./data/user
-  knowledge_bases_dir: ./data/knowledge_bases
-  user_log_dir: ./data/user/logs
-  performance_log_dir: ./data/user/performance
-  # Module-specific output directories
-  guide_output_dir: ./data/user/guide
-  question_output_dir: ./data/user/question
-  research_output_dir: ./data/user/research/cache
-  research_reports_dir: ./data/user/research/reports
-  solve_output_dir: ./data/user/solve
 
 tools:
   rag_tool:
@@ -197,7 +184,7 @@ Configuration files are loaded using `src/core/core.py`:
 from src.core.core import load_config_with_main, get_agent_params
 
 # Load main configuration (returns main.yaml content)
-config = load_config_with_main("main.yaml", project_root)
+config = load_config_with_main("main.yaml")
 
 # Load agent parameters (temperature, max_tokens)
 params = get_agent_params("solve")
@@ -232,7 +219,7 @@ PERPLEXITY_API_KEY=your_perplexity_key  # For web search
 
 1. **Use agents.yaml for LLM parameters**: All `temperature` and `max_tokens` settings should be in `agents.yaml`
 2. **Never hardcode LLM parameters**: Always use `get_agent_params()` in agent code
-3. **Use main.yaml for all other settings**: Paths, logging, tools, module-specific settings
+3. **Use main.yaml for all other settings**: Logging, tools, module-specific settings
 4. **Environment variables for secrets**: Never commit API keys to config files
 5. **Relative paths**: Use relative paths from project root for portability
 6. **Presets for common scenarios**: Use presets (e.g., in main.yaml research section) for different use cases
@@ -263,7 +250,7 @@ PERPLEXITY_API_KEY=your_perplexity_key  # For web search
 
 1. **Agent parameters centralization**: All `temperature` and `max_tokens` settings MUST be in `agents.yaml`. Do NOT hardcode these values in agent code.
 2. **Model configuration**: LLM model names should only be set via environment variables (`.env` or `DeepTutor.env`), not in config files.
-3. **Path consistency**: All modules use paths from `main.yaml` to ensure consistency. Use relative paths from project root for portability.
+3. **Path consistency**: All modules use `get_user_dir()` which respects the `DEEPTUTOR_DATA_DIR` environment variable for data paths.
 4. **Language setting**: System language is set in `main.yaml` (`system.language`) and shared by all modules. Individual modules should not override this.
 5. **Research presets**: Use presets in `main.yaml` (research.presets: quick/medium/deep/auto) for different research depth requirements.
 6. **Code execution safety**: The `run_code` tool in `main.yaml` has restricted `allowed_roots` for security.

@@ -145,7 +145,6 @@ async def mimic_exam_questions(
         paper_path = Path(paper_dir)
 
         # Candidate locations to search (including new location)
-        # Uses get_user_dir() which respects DEEPTUTOR_DATA_DIR env var
         possible_paths = [
             get_user_dir() / "question" / "mimic_papers" / paper_dir,  # Primary location
             Path("question_agents/reference_papers") / paper_dir,  # Legacy location
@@ -214,7 +213,6 @@ async def mimic_exam_questions(
         print("-" * 80)
 
         # Use provided output_dir or default to mimic_papers
-        # Uses get_user_dir() which respects DEEPTUTOR_DATA_DIR env var
         if output_dir:
             output_base = Path(output_dir)
         else:
@@ -344,7 +342,7 @@ async def mimic_exam_questions(
     from src.services.config import load_config_with_main
 
     # Load config for parallel settings
-    config = load_config_with_main("question_config.yaml", _project_root)
+    config = load_config_with_main("question_config.yaml")
     question_cfg = config.get("question", {})
     max_parallel = question_cfg.get("max_parallel_questions", 3)
 

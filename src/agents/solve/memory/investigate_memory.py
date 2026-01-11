@@ -61,13 +61,18 @@ class Reflections:
 
 
 class InvestigateMemory:
-    """Analysis loop memory management (Refactored: uses unified cite_id)"""
+    """Analysis loop memory management (Refactored: uses unified cite_id)
+
+    Features lazy loading for knowledge_chain to avoid loading large JSON files
+    until they are actually needed.
+    """
 
     def __init__(
         self,
         task_id: str | None = None,
         user_question: str = "",
         output_dir: str | None = None,
+        _lazy_load: bool = False,
     ):
         self.task_id = task_id or f"investigate_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         self.user_question = user_question
@@ -77,9 +82,10 @@ class InvestigateMemory:
         self.created_at = datetime.now().isoformat()
         self.updated_at = datetime.now().isoformat()
 
-        # Core data
-        self.knowledge_chain: list[KnowledgeItem] = []
-        self.reflections: Reflections = Reflections()
+        # Core data - lazy loaded when _lazy_load=True
+        self._knowledge_chain: list[KnowledgeItem] | None = None if _lazy_load else []
+        self._reflections: Reflections | None = None if _lazy_load else Reflections()
+        self._is_loaded: bool = not _lazy_load
 
         # Metadata (for statistics and monitoring)
         self.metadata: dict[str, Any] = {
@@ -95,15 +101,112 @@ class InvestigateMemory:
         else:
             self.file_path = None
 
+    @property
+    def knowledge_chain(self) -> list[KnowledgeItem]:
+        """Lazy-loaded knowledge chain property"""
+        if self._knowledge_chain is None:
+            self._load_data_if_needed()
+        return self._knowledge_chain  # type: ignore
+
+    @knowledge_chain.setter
+    def knowledge_chain(self, value: list[KnowledgeItem]):
+        self._knowledge_chain = value
+        self._is_loaded = True
+
+    @property
+    def reflections(self) -> Reflections:
+        """Lazy-loaded reflections property"""
+        if self._reflections is None:
+            self._load_data_if_needed()
+        return self._reflections  # type: ignore
+
+    @reflections.setter
+    def reflections(self, value: Reflections):
+        self._reflections = value
+        self._is_loaded = True
+
+    def _load_data_if_needed(self):
+        """Load data from file if not already loaded"""
+        if self._is_loaded:
+            return
+
+        if self.file_path and self.file_path.exists():
+            try:
+                with open(self.file_path, encoding="utf-8") as f:
+                    data = json.load(f)
+
+                # Load knowledge chain
+                knowledge_chain_data = data.get("knowledge_chain", [])
+                self._knowledge_chain = [
+                    KnowledgeItem.from_dict(item) for item in knowledge_chain_data
+                ]
+
+                # Load reflections
+                reflections_data = data.get("reflections", {})
+                if isinstance(reflections_data, dict):
+                    self._reflections = Reflections.from_dict(reflections_data)
+                else:
+                    self._reflections = Reflections()
+
+                # Load metadata
+                self.metadata = data.get("metadata", self.metadata)
+
+            except Exception:
+                # If loading fails, initialize with defaults
+                self._knowledge_chain = []
+                self._reflections = Reflections()
+        else:
+            # No file exists, initialize with defaults
+            self._knowledge_chain = []
+            self._reflections = Reflections()
+
+        self._is_loaded = True
+
     @classmethod
     def load_or_create(
-        cls, output_dir: str, user_question: str = "", task_id: str | None = None
+        cls,
+        output_dir: str,
+        user_question: str = "",
+        task_id: str | None = None,
+        lazy: bool = False,
     ) -> "InvestigateMemory":
-        """Load existing memory or create new memory (supports v1.0/v2.0 backward compatibility)"""
+        """Load existing memory or create new memory (supports v1.0/v2.0 backward compatibility)
+
+        Args:
+            output_dir: Directory containing the memory file
+            user_question: User question for new memories
+            task_id: Task ID for new memories
+            lazy: If True, defer loading data until first access (for performance)
+
+        Returns:
+            InvestigateMemory instance
+        """
         file_path = Path(output_dir) / "investigate_memory.json"
 
         if file_path.exists():
-            # Load existing memory
+            if lazy:
+                # Create memory with lazy loading enabled
+                # Only load metadata for quick access, defer heavy data
+                try:
+                    with open(file_path, encoding="utf-8") as f:
+                        data = json.load(f)
+
+                    memory = cls(
+                        task_id=data.get("task_id"),
+                        user_question=data.get("user_question", user_question),
+                        output_dir=output_dir,
+                        _lazy_load=True,
+                    )
+                    memory.version = data.get("version", "3.0")
+                    memory.created_at = data.get("created_at", memory.created_at)
+                    memory.updated_at = data.get("updated_at", memory.updated_at)
+                    memory.metadata = data.get("metadata", memory.metadata)
+                    return memory
+                except Exception:
+                    # If quick load fails, fall back to full load
+                    pass
+
+            # Full load (existing behavior)
             with open(file_path, encoding="utf-8") as f:
                 data = json.load(f)
 
@@ -165,6 +268,12 @@ class InvestigateMemory:
             return memory
         # Create new memory
         return cls(task_id=task_id, user_question=user_question, output_dir=output_dir)
+
+    @staticmethod
+    def exists(output_dir: str) -> bool:
+        """Check if memory file exists without loading it"""
+        file_path = Path(output_dir) / "investigate_memory.json"
+        return file_path.exists()
 
     def add_knowledge(self, item: KnowledgeItem):
         """Add knowledge item"""
