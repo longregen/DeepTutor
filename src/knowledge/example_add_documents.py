@@ -6,16 +6,18 @@ Incremental Document Addition Usage Example
 Demonstrates how to add new documents to an existing knowledge base
 """
 
-import asyncio
-import os
 from pathlib import Path
 import sys
 
-# Add project root directory to path
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root))
+_project_root = Path(__file__).resolve().parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
+import asyncio
+import os
 
 from src.knowledge.add_documents import DocumentAdder
+from src.services.config import get_knowledge_base_dir
 
 
 async def example_add_single_document():
@@ -26,7 +28,7 @@ async def example_add_single_document():
 
     adder = DocumentAdder(
         kb_name="ai_textbook",
-        base_dir="./data/knowledge_bases",
+        base_dir=str(get_knowledge_base_dir()),
         api_key=os.getenv("LLM_API_KEY"),
         base_url=os.getenv("LLM_HOST"),
     )
@@ -58,7 +60,7 @@ async def example_add_multiple_documents():
 
     adder = DocumentAdder(
         kb_name="math2211",
-        base_dir="./data/knowledge_bases",
+        base_dir=str(get_knowledge_base_dir()),
         api_key=os.getenv("LLM_API_KEY"),
         base_url=os.getenv("LLM_HOST"),
     )
@@ -97,7 +99,7 @@ async def example_add_from_directory():
 
     adder = DocumentAdder(
         kb_name="ai_textbook",
-        base_dir="./data/knowledge_bases",
+        base_dir=str(get_knowledge_base_dir()),
         api_key=os.getenv("LLM_API_KEY"),
         base_url=os.getenv("LLM_HOST"),
     )
@@ -135,7 +137,7 @@ async def example_add_only_no_processing():
 
     adder = DocumentAdder(
         kb_name="ai_textbook",
-        base_dir="./data/knowledge_bases",
+        base_dir=str(get_knowledge_base_dir()),
         api_key=os.getenv("LLM_API_KEY"),
         base_url=os.getenv("LLM_HOST"),
     )
@@ -156,7 +158,7 @@ async def example_check_existing_files():
     print("Example 5: Check existing files in knowledge base")
     print("=" * 60)
 
-    adder = DocumentAdder(kb_name="ai_textbook", base_dir="./data/knowledge_bases")
+    adder = DocumentAdder(kb_name="ai_textbook", base_dir=str(get_knowledge_base_dir()))
 
     existing_files = adder.get_existing_files()
 
@@ -174,7 +176,7 @@ def example_with_error_handling():
     try:
         adder = DocumentAdder(
             kb_name="ai_textbook",
-            base_dir="./data/knowledge_bases",
+            base_dir=str(get_knowledge_base_dir()),
             api_key=os.getenv("LLM_API_KEY"),
             base_url=os.getenv("LLM_HOST"),
         )

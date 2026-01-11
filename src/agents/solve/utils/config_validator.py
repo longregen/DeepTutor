@@ -6,9 +6,16 @@ Validates the completeness and correctness of config.yaml
 """
 
 from pathlib import Path
+import sys
 from typing import Any
 
 import yaml
+
+_project_root = Path(__file__).resolve().parent.parent.parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
+from src.services.config import _get_config_dir
 
 
 class ConfigValidator:
@@ -303,8 +310,8 @@ if __name__ == "__main__":
     print("Configuration Validation Test")
     print("=" * 60)
 
-    # Validate config.yaml in current directory
-    config_path = Path(__file__).parent.parent.parent.parent / "config.yaml"
+    # Validate main.yaml in config directory
+    config_path = _get_config_dir() / "main.yaml"
 
     if config_path.exists():
         is_valid, errors, warnings = validate_config_file(str(config_path))

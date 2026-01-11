@@ -3,7 +3,6 @@ import base64
 from datetime import datetime
 from pathlib import Path
 import re
-import sys
 import traceback
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -13,11 +12,6 @@ from src.agents.question.tools.exam_mimic import mimic_exam_questions
 from src.api.utils.history import ActivityType, history_manager
 from src.api.utils.log_interceptor import LogInterceptor
 from src.api.utils.task_id_manager import TaskIDManager
-
-# Add project root for imports
-project_root = Path(__file__).parent.parent.parent.parent
-sys.path.insert(0, str(project_root))
-
 from src.logging import get_logger
 from src.services.config import get_user_dir, load_config_with_main
 

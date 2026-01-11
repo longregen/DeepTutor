@@ -5,11 +5,16 @@ Supports multi-language, caching, and language fallbacks.
 """
 
 from pathlib import Path
+import sys
 from typing import Any
 
 import yaml
 
-from src.services.config import PROJECT_ROOT, parse_language
+_project_root = Path(__file__).resolve().parent.parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
+from src.services.config import parse_language
 
 
 class PromptManager:
@@ -80,7 +85,7 @@ class PromptManager:
         subdirectory: str | None,
     ) -> dict[str, Any]:
         """Load prompt file with language fallback."""
-        prompts_dir = PROJECT_ROOT / "src" / "agents" / module_name / "prompts"
+        prompts_dir = _project_root / "src" / "agents" / module_name / "prompts"
         fallback_chain = self.LANGUAGE_FALLBACKS.get(lang_code, ["en"])
 
         for lang in fallback_chain:

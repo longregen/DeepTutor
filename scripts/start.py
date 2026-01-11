@@ -688,7 +688,7 @@ class AITutorStarter:
                 print("-" * 70)
                 import subprocess
 
-                web_dir = Path(__file__).parent / "web"
+                web_dir = Path(__file__).parent.parent / "web"
                 subprocess.run(["npm", "run", "dev"], check=False, cwd=web_dir)
                 break
             if choice == "3":
@@ -728,7 +728,7 @@ class AITutorStarter:
         print("\n📁 Configuration file locations:")
         env_files = [".env", "DeepTutor.env"]
         for env_file in env_files:
-            env_path = Path(__file__).parent / env_file
+            env_path = Path(__file__).parent.parent / env_file
             if env_path.exists():
                 print(f"   ✅ {env_path}")
             else:

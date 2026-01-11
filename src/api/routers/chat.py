@@ -9,18 +9,18 @@ REST endpoints for session operations.
 from pathlib import Path
 import sys
 
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+_project_root = Path(__file__).resolve().parent.parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
-_project_root = Path(__file__).parent.parent.parent.parent
-sys.path.insert(0, str(_project_root))
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 
 from src.agents.chat import ChatAgent, SessionManager
 from src.logging import get_logger
 from src.services.config import load_config_with_main
 
 # Initialize logger
-project_root = Path(__file__).parent.parent.parent.parent
-config = load_config_with_main("solve_config.yaml", project_root)
+config = load_config_with_main("solve_config.yaml", _project_root)
 log_dir = config.get("paths", {}).get("user_log_dir") or config.get("logging", {}).get("log_dir")
 logger = get_logger("ChatAPI", level="INFO", log_dir=log_dir)
 

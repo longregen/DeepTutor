@@ -2,8 +2,15 @@ import os
 from pathlib import Path
 from threading import Lock
 from typing import Any, Dict
+import sys
 
 import yaml
+
+_project_root = Path(__file__).resolve().parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
+from src.services.config.loader import _get_config_dir
 
 
 class ConfigManager:
@@ -24,8 +31,9 @@ class ConfigManager:
         if self._initialized:
             return
 
-        self.project_root = Path(__file__).parent.parent.parent
-        self.config_path = self.project_root / "config" / "main.yaml"
+        self.project_root = _project_root
+        # Use DEEPTUTOR_CONFIG_DIR if set, otherwise fall back to _project_root/config
+        self.config_path = _get_config_dir() / "main.yaml"
         self._config_cache = None
         self._last_mtime = 0
         self._initialized = True

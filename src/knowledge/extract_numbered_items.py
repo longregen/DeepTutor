@@ -7,47 +7,70 @@ Such as: Definition 1.5., Proposition 1.3., Theorem x.x., Equation x.x., Formula
 Use LLM to identify these contents and store the mapping between numbers and original text in JSON file
 """
 
+from pathlib import Path
+import sys
+
+_project_root = Path(__file__).resolve().parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
 import argparse
 import asyncio
 import inspect
 import json
 import os
-from pathlib import Path
-import sys
 from typing import Any
-
-sys.path.append(str(Path(__file__).parent.parent.parent))
 
 from dotenv import load_dotenv
 from lightrag.llm.openai import openai_complete_if_cache
 
+from src.logging import get_logger
+from src.services.config import get_knowledge_base_dir
 from src.services.llm import get_llm_config
 
-load_dotenv(dotenv_path=".env", override=False)
+load_dotenv(dotenv_path=_project_root / ".env", override=False)
 
-# Use project unified logging system
-try:
-    from pathlib import Path
+logger = get_logger("Knowledge")
 
-    from src.logging import get_logger
-    from src.services.config import load_config_with_main
 
-    project_root = Path(__file__).parent.parent.parent.parent
-    config = load_config_with_main(
-        "solve_config.yaml", project_root
-    )  # Use any config to get main.yaml
-    log_dir = config.get("paths", {}).get("user_log_dir") or config.get("logging", {}).get(
-        "log_dir"
-    )
-    logger = get_logger("Knowledge", log_dir=log_dir)
-except ImportError:
-    # If import fails, use basic logging
-    import logging
+def _run_async(coro):
+    """
+    Run an async coroutine from sync context, handling various event loop scenarios.
+    """
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # Check if it's uvloop (doesn't support nest_asyncio)
+            if "uvloop" in type(loop).__name__.lower():
+                return _run_in_thread(coro)
+            # Try nest_asyncio for standard event loops
+            try:
+                import nest_asyncio
+                nest_asyncio.apply()
+                return loop.run_until_complete(coro)
+            except (ValueError, TypeError):
+                return _run_in_thread(coro)
+        else:
+            return loop.run_until_complete(coro)
+    except RuntimeError:
+        return asyncio.run(coro)
 
-    logger = logging.getLogger("knowledge_init.extract_items")
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
-    )
+
+def _run_in_thread(coro):
+    """Run coroutine in a new thread with its own event loop."""
+    import concurrent.futures
+
+    def run_in_new_loop():
+        new_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(new_loop)
+        try:
+            return new_loop.run_until_complete(coro)
+        finally:
+            new_loop.close()
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future = executor.submit(run_in_new_loop)
+        return future.result()
 
 
 async def _call_llm_async(
@@ -269,79 +292,10 @@ def _get_complete_content(
     base_url: str | None,
     max_following: int = 5,
 ) -> tuple[str, list[str]]:
-    """
-    Synchronous wrapper for async function to get complete content
-    """
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # If event loop is already running, check if it's uvloop
-            loop_type = type(loop).__name__
-            if "uvloop" in loop_type.lower():
-                # uvloop doesn't support nest_asyncio, use threading approach
-                import concurrent.futures
-
-                def run_in_new_loop():
-                    # Create a new asyncio event loop in a new thread
-                    new_loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(new_loop)
-                    try:
-                        return new_loop.run_until_complete(
-                            _get_complete_content_async(
-                                content_items, start_index, api_key, base_url, max_following
-                            )
-                        )
-                    finally:
-                        new_loop.close()
-
-                # Run in a thread with a new event loop
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(run_in_new_loop)
-                    return future.result()
-            else:
-                # Try nest_asyncio for standard event loops
-                try:
-                    import nest_asyncio
-
-                    nest_asyncio.apply()
-                    return loop.run_until_complete(
-                        _get_complete_content_async(
-                            content_items, start_index, api_key, base_url, max_following
-                        )
-                    )
-                except (ValueError, TypeError) as e:
-                    # nest_asyncio failed, fall back to threading approach
-                    logger.debug(f"nest_asyncio failed ({e}), using threading fallback")
-                    import concurrent.futures
-
-                    def run_in_new_loop():
-                        new_loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(new_loop)
-                        try:
-                            return new_loop.run_until_complete(
-                                _get_complete_content_async(
-                                    content_items, start_index, api_key, base_url, max_following
-                                )
-                            )
-                        finally:
-                            new_loop.close()
-
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(run_in_new_loop)
-                        return future.result()
-        else:
-            return loop.run_until_complete(
-                _get_complete_content_async(
-                    content_items, start_index, api_key, base_url, max_following
-                )
-            )
-    except RuntimeError:
-        # No event loop, create new one
-        return asyncio.run(
-            _get_complete_content_async(
-                content_items, start_index, api_key, base_url, max_following
-            )
-        )
+    """Synchronous wrapper for async function to get complete content."""
+    return _run_async(
+        _get_complete_content_async(content_items, start_index, api_key, base_url, max_following)
+    )
 
 
 async def _process_single_batch(
@@ -685,79 +639,12 @@ def extract_numbered_items_with_llm(
     batch_size: int = 20,
     max_concurrent: int = 5,
 ) -> dict[str, dict[str, Any]]:
-    """
-    Synchronous wrapper for async extraction function
-    """
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # If event loop is already running, check if it's uvloop
-            loop_type = type(loop).__name__
-            if "uvloop" in loop_type.lower():
-                # uvloop doesn't support nest_asyncio, use threading approach
-                import concurrent.futures
-
-                def run_in_new_loop():
-                    # Create a new asyncio event loop in a new thread
-                    new_loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(new_loop)
-                    try:
-                        return new_loop.run_until_complete(
-                            extract_numbered_items_with_llm_async(
-                                content_items, api_key, base_url, batch_size, max_concurrent
-                            )
-                        )
-                    finally:
-                        new_loop.close()
-
-                # Run in a thread with a new event loop
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(run_in_new_loop)
-                    return future.result()
-            else:
-                # Try nest_asyncio for standard event loops
-                try:
-                    import nest_asyncio
-
-                    nest_asyncio.apply()
-                    return loop.run_until_complete(
-                        extract_numbered_items_with_llm_async(
-                            content_items, api_key, base_url, batch_size, max_concurrent
-                        )
-                    )
-                except (ValueError, TypeError) as e:
-                    # nest_asyncio failed, fall back to threading approach
-                    logger.debug(f"nest_asyncio failed ({e}), using threading fallback")
-                    import concurrent.futures
-
-                    def run_in_new_loop():
-                        new_loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(new_loop)
-                        try:
-                            return new_loop.run_until_complete(
-                                extract_numbered_items_with_llm_async(
-                                    content_items, api_key, base_url, batch_size, max_concurrent
-                                )
-                            )
-                        finally:
-                            new_loop.close()
-
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(run_in_new_loop)
-                        return future.result()
-        else:
-            return loop.run_until_complete(
-                extract_numbered_items_with_llm_async(
-                    content_items, api_key, base_url, batch_size, max_concurrent
-                )
-            )
-    except RuntimeError:
-        # No event loop, create new one
-        return asyncio.run(
-            extract_numbered_items_with_llm_async(
-                content_items, api_key, base_url, batch_size, max_concurrent
-            )
+    """Synchronous wrapper for async extraction function."""
+    return _run_async(
+        extract_numbered_items_with_llm_async(
+            content_items, api_key, base_url, batch_size, max_concurrent
         )
+    )
 
 
 def process_content_list(
@@ -878,8 +765,8 @@ def main():
     )
     parser.add_argument(
         "--base-dir",
-        help="Data storage base directory (default: ./knowledge_bases)",
-        default="./knowledge_bases",
+        help="Base directory for knowledge bases",
+        default=str(get_knowledge_base_dir()),
     )
     parser.add_argument(
         "--batch-size",

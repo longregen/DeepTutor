@@ -7,8 +7,9 @@ from datetime import datetime
 from enum import Enum
 import json
 import os
+import time
 
-import requests
+from src.services.search import BaiduAISearch, KagiSearch, RateLimitError, SearchError
 
 try:
     from perplexity import Perplexity
@@ -27,92 +28,7 @@ class SearchProvider(str, Enum):
     KAGI = "kagi"
 
 
-class BaiduAISearch:
-    """Baidu AI Search client for intelligent search and generation"""
-
-    BASE_URL = "https://qianfan.baidubce.com/v2/ai_search/chat/completions"
-
-    def __init__(self, api_key: str):
-        """
-        Initialize Baidu AI Search client
-
-        Args:
-            api_key: Baidu Qianfan API Key (format: bce-v3/xxx or Bearer token)
-        """
-        self.api_key = api_key
-        self.headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}" if not api_key.startswith("Bearer ") else api_key,
-        }
-
-    def search(
-        self,
-        query: str,
-        model: str = "ernie-4.5-turbo-32k",
-        search_source: str = "baidu_search_v2",
-        stream: bool = False,
-        enable_deep_search: bool = False,
-        enable_corner_markers: bool = True,
-        enable_followup_queries: bool = False,
-        temperature: float = 0.11,
-        top_p: float = 0.55,
-        search_mode: str = "auto",
-        search_recency_filter: str | None = None,
-        instruction: str = "",
-    ) -> dict:
-        """
-        Perform intelligent search using Baidu AI Search API
-
-        Args:
-            query: Search query
-            model: Model to use for generation (default: ernie-4.5-turbo-32k)
-            search_source: Search engine version (baidu_search_v1 or baidu_search_v2)
-            stream: Whether to use streaming response
-            enable_deep_search: Enable deep search for more comprehensive results
-            enable_corner_markers: Enable corner markers for reference citations
-            enable_followup_queries: Enable follow-up query suggestions
-            temperature: Model sampling temperature (0, 1]
-            top_p: Model sampling top_p (0, 1]
-            search_mode: Search mode (auto, required, disabled)
-            search_recency_filter: Filter by recency (week, month, semiyear, year)
-            instruction: System instruction for response style
-            max_completion_tokens: Maximum output tokens
-
-        Returns:
-            dict: API response containing search results and generated answer
-        """
-        payload = {
-            "messages": [{"role": "user", "content": query}],
-            "model": model,
-            "search_source": search_source,
-            "stream": stream,
-            "enable_deep_search": enable_deep_search,
-            "enable_corner_markers": enable_corner_markers,
-            "enable_followup_queries": enable_followup_queries,
-            "temperature": temperature,
-            "top_p": top_p,
-            "search_mode": search_mode,
-        }
-
-        if search_recency_filter:
-            payload["search_recency_filter"] = search_recency_filter
-
-        if instruction:
-            payload["instruction"] = instruction
-
-        response = requests.post(self.BASE_URL, headers=self.headers, json=payload, timeout=120)
-
-        if response.status_code != 200:
-            error_data = response.json() if response.text else {}
-            raise Exception(
-                f"Baidu AI Search API error: {response.status_code} - "
-                f"{error_data.get('message', response.text)}"
-            )
-
-        return response.json()
-
-
-def _search_with_baidu(
+async def _search_with_baidu(
     query: str,
     model: str = "ernie-4.5-turbo-32k",
     enable_deep_search: bool = False,
@@ -141,7 +57,7 @@ def _search_with_baidu(
 
     client = BaiduAISearch(api_key=api_key)
 
-    response = client.search(
+    response = await client.search(
         query=query,
         model=model,
         enable_deep_search=enable_deep_search,
@@ -222,60 +138,7 @@ def _search_with_baidu(
     return result
 
 
-class KagiSearch:
-    """Kagi Search API client for privacy-focused web search"""
-
-    BASE_URL = "https://kagi.com/api/v0/search"
-
-    def __init__(self, api_key: str):
-        """
-        Initialize Kagi Search client
-
-        Args:
-            api_key: Kagi API Key (Bot token)
-        """
-        self.api_key = api_key
-        self.headers = {
-            "Authorization": f"Bot {api_key}",
-        }
-
-    def search(
-        self,
-        query: str,
-        limit: int | None = None,
-    ) -> dict:
-        """
-        Perform search using Kagi Search API
-
-        Args:
-            query: Search query
-            limit: Maximum number of results to return (optional)
-
-        Returns:
-            dict: API response containing search results
-        """
-        params = {"q": query}
-        if limit is not None:
-            params["limit"] = limit
-
-        response = requests.get(
-            self.BASE_URL,
-            headers=self.headers,
-            params=params,
-            timeout=60,
-        )
-
-        if response.status_code != 200:
-            error_data = response.json() if response.text else {}
-            raise Exception(
-                f"Kagi Search API error: {response.status_code} - "
-                f"{error_data.get('error', [{}])[0].get('msg', response.text)}"
-            )
-
-        return response.json()
-
-
-def _search_with_kagi(
+async def _search_with_kagi(
     query: str,
     limit: int | None = None,
     verbose: bool = False,
@@ -285,7 +148,7 @@ def _search_with_kagi(
 
     Args:
         query: Search query
-        limit: Maximum number of results to return
+        limit: Maximum number of results to return (optional)
         verbose: Whether to print detailed information
 
     Returns:
@@ -300,7 +163,7 @@ def _search_with_kagi(
 
     client = KagiSearch(api_key=api_key)
 
-    response = client.search(query=query, limit=limit)
+    response = await client.search(query=query, limit=limit)
 
     # Build standardized result
     result = {
@@ -492,7 +355,7 @@ def _search_with_perplexity(query: str, verbose: bool = False) -> dict:
     return result
 
 
-def web_search(
+async def web_search(
     query: str,
     output_dir: str | None = None,
     verbose: bool = False,
@@ -534,7 +397,7 @@ def web_search(
 
     try:
         if provider == "baidu":
-            result = _search_with_baidu(
+            result = await _search_with_baidu(
                 query=query,
                 model=baidu_model,
                 enable_deep_search=baidu_enable_deep_search,
@@ -544,7 +407,7 @@ def web_search(
         elif provider == "perplexity":
             result = _search_with_perplexity(query=query, verbose=verbose)
         elif provider == "kagi":
-            result = _search_with_kagi(
+            result = await _search_with_kagi(
                 query=query,
                 limit=kagi_limit,
                 verbose=verbose,
@@ -587,6 +450,7 @@ def web_search(
 
 
 if __name__ == "__main__":
+    import asyncio
     import sys
 
     if sys.platform == "win32":
@@ -594,18 +458,21 @@ if __name__ == "__main__":
 
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 
-    # Test with different providers
-    # Default: Perplexity
-    # result = web_search("What is a diffusion model?", output_dir="./test_output", verbose=True)
+    async def main():
+        # Test with different providers
+        # Default: Perplexity
+        # result = await web_search("What is a diffusion model?", output_dir="./test_output", verbose=True)
 
-    # Test with Baidu AI Search
-    result = web_search(
-        "What is a diffusion model?",
-        output_dir="./test_output",
-        verbose=True,
-    )
-    print("\nSearch completed!")
-    print(f"Provider: {result.get('provider', 'unknown')}")
-    print(f"Query: {result['query']}")
-    answer = result.get("answer", "")
-    print(f"Answer: {answer[:300]}..." if len(answer) > 300 else f"Answer: {answer}")
+        # Test with Baidu AI Search
+        result = await web_search(
+            "What is a diffusion model?",
+            output_dir="./test_output",
+            verbose=True,
+        )
+        print("\nSearch completed!")
+        print(f"Provider: {result.get('provider', 'unknown')}")
+        print(f"Query: {result['query']}")
+        answer = result.get("answer", "")
+        print(f"Answer: {answer[:300]}..." if len(answer) > 300 else f"Answer: {answer}")
+
+    asyncio.run(main())

@@ -1,5 +1,10 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
+import sys
+
+_project_root = Path(__file__).resolve().parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -57,7 +62,6 @@ app.add_middleware(
 # URL: /api/outputs/solve/solve_xxx/artifacts/image.png
 # Physical Path: data/user/solve/solve_xxx/artifacts/image.png
 # Uses DEEPTUTOR_DATA_DIR env var if set (for containerized deployments)
-project_root = Path(__file__).parent.parent.parent
 user_dir = get_user_dir()
 
 # Initialize user directories on startup
@@ -96,36 +100,25 @@ async def root():
 
 
 if __name__ == "__main__":
-    from pathlib import Path
-
     import uvicorn
-
-    # Get project root directory
-    project_root = Path(__file__).parent.parent.parent
-
-    # Ensure project root is in Python path
-    import sys
-
-    if str(project_root) not in sys.path:
-        sys.path.insert(0, str(project_root))
 
     # Get port from configuration
     from src.services.setup import get_backend_port
 
-    backend_port = get_backend_port(project_root)
+    backend_port = get_backend_port(_project_root)
 
     # Configure reload_excludes with absolute paths to properly exclude directories
-    venv_dir = project_root / "venv"
-    data_dir = project_root / "data"
+    venv_dir = _project_root / "venv"
+    data_dir = get_data_dir()
     reload_excludes = [
         str(d)
         for d in [
             venv_dir,
-            project_root / ".venv",
+            _project_root / ".venv",
             data_dir,
-            project_root / "web" / "node_modules",
-            project_root / "web" / ".next",
-            project_root / ".git",
+            _project_root / "web" / "node_modules",
+            _project_root / "web" / ".next",
+            _project_root / ".git",
         ]
         if d.exists()
     ]

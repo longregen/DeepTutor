@@ -1,9 +1,13 @@
 import asyncio
 import logging
-from pathlib import Path
 import sys
 import traceback
+from pathlib import Path
 from typing import Any
+
+_project_root = Path(__file__).resolve().parent.parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
 from fastapi import APIRouter, WebSocket
 from pydantic import BaseModel
@@ -25,8 +29,7 @@ router = APIRouter()
 
 # Helper to load config (with main.yaml merge)
 def load_config():
-    project_root = Path(__file__).parent.parent.parent.parent
-    return load_config_with_main("research_config.yaml", project_root)
+    return load_config_with_main("research_config.yaml", _project_root)
 
 
 # Initialize logger with config

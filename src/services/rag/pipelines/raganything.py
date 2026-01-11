@@ -9,8 +9,13 @@ from pathlib import Path
 import sys
 from typing import Any, Dict, List, Optional
 
+_project_root = Path(__file__).resolve().parent.parent.parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
 from src.logging import get_logger
 from src.logging.adapters import LightRAGLogContext
+from src.services.config import get_knowledge_base_dir
 
 
 class RAGAnythingPipeline:
@@ -44,9 +49,7 @@ class RAGAnythingPipeline:
             enable_equation_processing: Enable equation extraction and processing
         """
         self.logger = get_logger("RAGAnythingPipeline")
-        self.kb_base_dir = kb_base_dir or str(
-            Path(__file__).resolve().parent.parent.parent.parent.parent / "data" / "knowledge_bases"
-        )
+        self.kb_base_dir = kb_base_dir or str(get_knowledge_base_dir())
         self.enable_image = enable_image_processing
         self.enable_table = enable_table_processing
         self.enable_equation = enable_equation_processing
@@ -54,8 +57,7 @@ class RAGAnythingPipeline:
 
     def _setup_raganything_path(self):
         """Add RAG-Anything to sys.path if available."""
-        project_root = Path(__file__).resolve().parent.parent.parent.parent.parent
-        raganything_path = project_root.parent / "raganything" / "RAG-Anything"
+        raganything_path = _project_root.parent / "raganything" / "RAG-Anything"
         if raganything_path.exists() and str(raganything_path) not in sys.path:
             sys.path.insert(0, str(raganything_path))
 

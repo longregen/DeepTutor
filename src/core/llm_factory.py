@@ -212,10 +212,7 @@ async def llm_complete(
     """
     complete_fn = LLMFactory.get_completion_function(binding)
 
-    # Sanitize base_url for OpenAI-compatible endpoints
-    # The OpenAI client library is strict about URLs:
-    # - No trailing slashes
-    # - No /chat/completions or /completions suffixes (it adds these automatically)
+    # Sanitize base_url
     if base_url and (complete_fn == openai_complete_if_cache or binding in ["openai", "ollama"]):
         original_url = base_url
         base_url = sanitize_url(base_url, model)

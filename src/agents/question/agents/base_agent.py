@@ -12,15 +12,15 @@ from pathlib import Path
 import sys
 from typing import Any
 
+_project_root = Path(__file__).resolve().parent.parent.parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 
 # Load environment variables
 load_dotenv(override=False)
-
-# Add project root for imports
-project_root = Path(__file__).parent.parent.parent.parent.parent
-sys.path.insert(0, str(project_root))
 
 from src.logging import get_logger
 from src.services.config import get_agent_params

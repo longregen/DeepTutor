@@ -11,13 +11,9 @@ import shutil
 from typing import Any, Dict, List, Optional
 
 from src.logging import get_logger
+from src.services.config import get_knowledge_base_dir
 
 from .components.base import Component
-
-# Default knowledge base directory
-DEFAULT_KB_BASE_DIR = str(
-    Path(__file__).resolve().parent.parent.parent.parent / "data" / "knowledge_bases"
-)
 
 
 class RAGPipeline:
@@ -48,7 +44,7 @@ class RAGPipeline:
             kb_base_dir: Base directory for knowledge bases
         """
         self.name = name
-        self.kb_base_dir = kb_base_dir or DEFAULT_KB_BASE_DIR
+        self.kb_base_dir = kb_base_dir or str(get_knowledge_base_dir())
         self.logger = get_logger(f"Pipeline:{name}")
         self._parser: Optional[Component] = None
         self._chunkers: List[Component] = []

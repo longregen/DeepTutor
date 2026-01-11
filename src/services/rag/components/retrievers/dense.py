@@ -9,6 +9,8 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from src.services.config import get_knowledge_base_dir
+
 from ..base import BaseComponent
 
 
@@ -30,11 +32,7 @@ class DenseRetriever(BaseComponent):
             top_k: Number of results to return
         """
         super().__init__()
-        self.kb_base_dir = kb_base_dir or str(
-            Path(__file__).resolve().parent.parent.parent.parent.parent.parent
-            / "data"
-            / "knowledge_bases"
-        )
+        self.kb_base_dir = kb_base_dir or str(get_knowledge_base_dir())
         self.top_k = top_k
 
     async def process(self, query: str, kb_name: str, **kwargs) -> Dict[str, Any]:

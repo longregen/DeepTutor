@@ -13,13 +13,27 @@ from typing import Any
 
 import yaml
 
-# PROJECT_ROOT points to the actual project root directory (DeepTutor/)
-# Path(__file__) = src/services/config/loader.py
-# .parent = src/services/config/
-# .parent.parent = src/services/
-# .parent.parent.parent = src/
-# .parent.parent.parent.parent = DeepTutor/ (project root)
+
+# Project root: src/services/config/ -> project root (3 levels up)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+
+
+def _get_config_dir() -> Path:
+    """
+    Get the configuration directory path, respecting DEEPTUTOR_CONFIG_DIR environment variable.
+
+    For containerized/NixOS deployments, set DEEPTUTOR_CONFIG_DIR to a writable path.
+    Otherwise, defaults to PROJECT_ROOT/config.
+
+    Returns:
+        Path to the configuration directory
+    """
+    import os
+
+    config_dir_env = os.environ.get("DEEPTUTOR_CONFIG_DIR")
+    if config_dir_env:
+        return Path(config_dir_env)
+    return PROJECT_ROOT / "config"
 
 
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -52,7 +66,8 @@ def load_config_with_main(config_file: str, project_root: Path | None = None) ->
 
     Args:
         config_file: Sub-module configuration file name (e.g., "solve_config.yaml")
-        project_root: Project root directory (if None, will try to auto-detect)
+        project_root: Project root directory (if None, will try to auto-detect).
+                      Note: DEEPTUTOR_CONFIG_DIR env var takes precedence if set.
 
     Returns:
         Merged configuration dictionary
@@ -60,7 +75,8 @@ def load_config_with_main(config_file: str, project_root: Path | None = None) ->
     if project_root is None:
         project_root = PROJECT_ROOT
 
-    config_dir = project_root / "config"
+    # Use DEEPTUTOR_CONFIG_DIR if set, otherwise fall back to project_root/config
+    config_dir = _get_config_dir()
 
     # 1. Load main.yaml (common configuration)
     main_config = {}
@@ -178,7 +194,7 @@ def get_agent_params(module_name: str) -> dict:
 
     # Try to load from agents.yaml
     try:
-        config_path = PROJECT_ROOT / "config" / "agents.yaml"
+        config_path = _get_config_dir() / "agents.yaml"
 
         if config_path.exists():
             with open(config_path, encoding="utf-8") as f:
@@ -244,4 +260,5 @@ __all__ = [
     "get_user_dir",
     "get_knowledge_base_dir",
     "_deep_merge",
+    "_get_config_dir",
 ]

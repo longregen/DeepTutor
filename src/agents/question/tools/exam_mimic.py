@@ -19,12 +19,12 @@ from pathlib import Path
 import sys
 from typing import TYPE_CHECKING, Any, Callable
 
+_project_root = Path(__file__).resolve().parent.parent.parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
 if TYPE_CHECKING:
     from src.agents.question import AgentCoordinator
-
-# Add project root to sys.path
-project_root = Path(__file__).parent.parent.parent.parent.parent
-sys.path.insert(0, str(project_root))
 
 # Note: AgentCoordinator is imported inside functions to avoid circular import
 from src.agents.question.tools.pdf_parser import parse_pdf_with_mineru
@@ -344,7 +344,7 @@ async def mimic_exam_questions(
     from src.services.config import load_config_with_main
 
     # Load config for parallel settings
-    config = load_config_with_main("question_config.yaml", project_root)
+    config = load_config_with_main("question_config.yaml", _project_root)
     question_cfg = config.get("question", {})
     max_parallel = question_cfg.get("max_parallel_questions", 3)
 

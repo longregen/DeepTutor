@@ -9,7 +9,6 @@ import asyncio
 from datetime import datetime
 from pathlib import Path
 import shutil
-import sys
 import traceback
 
 from fastapi import (
@@ -30,9 +29,6 @@ from src.knowledge.add_documents import DocumentAdder
 from src.knowledge.initializer import KnowledgeBaseInitializer
 from src.knowledge.manager import KnowledgeBaseManager
 from src.knowledge.progress_tracker import ProgressStage, ProgressTracker
-
-_project_root = Path(__file__).parent.parent.parent.parent
-sys.path.insert(0, str(_project_root))
 from src.logging import get_logger
 from src.services.config import get_knowledge_base_dir, load_config_with_main
 from src.services.llm import get_llm_config

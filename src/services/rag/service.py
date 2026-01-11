@@ -10,11 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from src.logging import get_logger
-
-# Default knowledge base directory
-DEFAULT_KB_BASE_DIR = str(
-    Path(__file__).resolve().parent.parent.parent.parent / "data" / "knowledge_bases"
-)
+from src.services.config import get_knowledge_base_dir
 
 
 class RAGService:
@@ -52,7 +48,7 @@ class RAGService:
                       Defaults to RAG_PROVIDER env var or "raganything".
         """
         self.logger = get_logger("RAGService")
-        self.kb_base_dir = kb_base_dir or DEFAULT_KB_BASE_DIR
+        self.kb_base_dir = kb_base_dir or str(get_knowledge_base_dir())
         self.provider = provider or os.getenv("RAG_PROVIDER", "raganything")
         self._pipeline = None
 

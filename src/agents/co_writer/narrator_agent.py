@@ -15,12 +15,11 @@ from typing import Any
 from urllib.parse import urlparse
 import uuid
 
-from openai import OpenAI
-
-# Add project root for imports
-_project_root = Path(__file__).parent.parent.parent.parent
+_project_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
+
+from openai import OpenAI
 
 from src.core.llm_factory import llm_complete
 from src.logging import get_logger

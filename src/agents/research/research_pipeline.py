@@ -5,45 +5,17 @@ ResearchPipeline 2.0 - Research workflow based on dynamic topic queue
 Coordinates three stages: Planning -> Researching -> Reporting
 """
 
+from pathlib import Path
+import sys
+
+_project_root = Path(__file__).resolve().parent.parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
 import asyncio
 from datetime import datetime
 import json
-from pathlib import Path
-import sys
 from typing import Any, Callable
-
-
-def _get_project_root() -> Path:
-    """
-    Get project root directory robustly by looking for marker files.
-    Works regardless of how the script is invoked.
-    """
-    # Start from current file's directory
-    current = Path(__file__).resolve().parent
-
-    # Walk up looking for project markers (pyproject.toml, requirements.txt, or src/ directory)
-    markers = ["pyproject.toml", "requirements.txt", ".git"]
-
-    for _ in range(10):  # Limit to 10 levels up
-        for marker in markers:
-            if (current / marker).exists():
-                return current
-        parent = current.parent
-        if parent == current:  # Reached filesystem root
-            break
-        current = parent
-
-    # Fallback: use relative path from this file
-    # This file is at: src/agents/research/research_pipeline.py
-    # So project root is: ../../../
-    return Path(__file__).resolve().parent.parent.parent.parent
-
-
-# Get project root
-PROJECT_ROOT = _get_project_root()
-
-# Add project root to path for imports
-sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.agents.research.agents import (
     DecomposeAgent,
@@ -1233,6 +1205,7 @@ async def main():
     from dotenv import load_dotenv
     import yaml
 
+    from src.services.config import _get_config_dir
     from src.services.llm import get_llm_config
 
     # Load environment variables
@@ -1241,7 +1214,12 @@ async def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="DR-in-KG 2.0 - Deep Research System")
     parser.add_argument("--topic", type=str, required=True, help="Research topic")
-    parser.add_argument("--config", type=str, default="config.yaml", help="Configuration file")
+    parser.add_argument(
+        "--config",
+        type=str,
+        default=str(_get_config_dir() / "config.yaml"),
+        help="Configuration file path",
+    )
     parser.add_argument(
         "--preset", type=str, choices=["quick", "medium", "deep", "auto"], help="Preset mode"
     )
@@ -1249,7 +1227,7 @@ async def main():
     args = parser.parse_args()
 
     # Load configuration
-    config_path = PROJECT_ROOT / args.config
+    config_path = Path(args.config)
     if not config_path.exists():
         logger = get_logger("Research")
         logger.error(f"Configuration file not found: {config_path}")

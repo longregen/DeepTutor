@@ -20,7 +20,9 @@ from typing import Any
 RUN_CODE_WORKSPACE_ENV = "RUN_CODE_WORKSPACE"
 RUN_CODE_ALLOWED_ROOTS_ENV = "RUN_CODE_ALLOWED_ROOTS"
 DEFAULT_WORKSPACE_NAME = "run_code_workspace"
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_project_root = Path(__file__).resolve().parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
 from src.logging import get_logger
 from src.services.config import get_user_dir
@@ -35,7 +37,7 @@ def _load_config() -> dict[str, Any]:
 
         # Try loading from solve_config (most common use case)
         try:
-            config = load_config_with_main("solve_config.yaml", PROJECT_ROOT)
+            config = load_config_with_main("solve_config.yaml", _project_root)
             run_code_config = config.get("tools", {}).get("run_code", {})
             if run_code_config:
                 logger.debug("Loaded run_code config from solve_config.yaml (with main.yaml)")
@@ -45,7 +47,7 @@ def _load_config() -> dict[str, Any]:
 
         # Fallback to question_config
         try:
-            config = load_config_with_main("question_config.yaml", PROJECT_ROOT)
+            config = load_config_with_main("question_config.yaml", _project_root)
             run_code_config = config.get("tools", {}).get("run_code", {})
             if run_code_config:
                 logger.debug("Loaded run_code config from question_config.yaml (with main.yaml)")
@@ -55,7 +57,7 @@ def _load_config() -> dict[str, Any]:
 
         # Fallback to main.yaml only
         try:
-            config = load_config_with_main("solve_config.yaml", PROJECT_ROOT)
+            config = load_config_with_main("solve_config.yaml", _project_root)
             run_code_config = config.get("tools", {}).get("run_code", {})
             if run_code_config:
                 return run_code_config
@@ -65,11 +67,11 @@ def _load_config() -> dict[str, Any]:
     except ImportError:
         logger.debug("config_loader not available, using fallback")
 
-    # Fallback: try loading main.yaml directly
     try:
         import yaml
+        from src.services.config import _get_config_dir
 
-        main_config_path = PROJECT_ROOT / "config" / "main.yaml"
+        main_config_path = _get_config_dir() / "main.yaml"
         if main_config_path.exists():
             with open(main_config_path, encoding="utf-8") as f:
                 config = yaml.safe_load(f) or {}
@@ -117,34 +119,27 @@ class WorkspaceManager:
     """Manages isolated workspace, similar to code_implementation_server workspace logic"""
 
     def __init__(self):
-        # Load configuration (priority: environment variable > config file > default)
         config = _load_config()
 
-        # Determine workspace directory (priority: environment variable > config file > default)
         env_path = os.getenv(RUN_CODE_WORKSPACE_ENV)
         if env_path:
             self.base_dir = Path(env_path).expanduser().resolve()
         else:
             config_workspace = config.get("workspace")
             if config_workspace:
-                # Support relative paths (relative to project root) and absolute paths
                 workspace_path = Path(config_workspace).expanduser()
                 if workspace_path.is_absolute():
                     self.base_dir = workspace_path.resolve()
                 else:
-                    self.base_dir = (PROJECT_ROOT / workspace_path).resolve()
+                    self.base_dir = (_project_root / workspace_path).resolve()
             else:
-                # Default workspace is set under user directory
                 self.base_dir = (get_user_dir() / DEFAULT_WORKSPACE_NAME).resolve()
 
-        # Determine allowed root paths list
-        # Default includes project root and user directory
         self.allowed_roots: list[Path] = [
-            PROJECT_ROOT.resolve(),
+            _project_root.resolve(),
             get_user_dir().resolve(),
         ]
 
-        # Read allowed root paths from config file
         config_allowed_roots = config.get("allowed_roots", [])
         if isinstance(config_allowed_roots, str):
             config_allowed_roots = [config_allowed_roots]
@@ -153,12 +148,11 @@ class WorkspaceManager:
             if root.is_absolute():
                 resolved_root = root.resolve()
             else:
-                resolved_root = (PROJECT_ROOT / root).resolve()
+                resolved_root = (_project_root / root).resolve()
             # Avoid duplicate addition
             if resolved_root not in self.allowed_roots:
                 self.allowed_roots.append(resolved_root)
 
-        # Read additional allowed root paths from environment variables
         extra_roots = os.getenv(RUN_CODE_ALLOWED_ROOTS_ENV)
         if extra_roots:
             for raw_path in extra_roots.split(os.pathsep):
@@ -168,7 +162,7 @@ class WorkspaceManager:
                     if path.is_absolute():
                         resolved_path = path.resolve()
                     else:
-                        resolved_path = (PROJECT_ROOT / path).resolve()
+                        resolved_path = (_project_root / path).resolve()
                     # Avoid duplicate addition
                     if resolved_path not in self.allowed_roots:
                         self.allowed_roots.append(resolved_path)

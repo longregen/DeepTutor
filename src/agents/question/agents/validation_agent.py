@@ -9,8 +9,9 @@ from pathlib import Path
 import sys
 from typing import Any
 
-project_root = Path(__file__).parent.parent.parent.parent.parent
-sys.path.insert(0, str(project_root))
+_project_root = Path(__file__).resolve().parent.parent.parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
 from src.logging import get_logger
 from src.services.config import load_config_with_main
@@ -37,7 +38,7 @@ class QuestionValidationAgent(BaseAgent):
         )
 
         # Load config for RAG settings
-        self._config = load_config_with_main("question_config.yaml", project_root)
+        self._config = load_config_with_main("question_config.yaml", _project_root)
 
         self.current_question = None
         self.validation_result = None

@@ -15,12 +15,12 @@ from pathlib import Path
 import sys
 from typing import Any
 
+_project_root = Path(__file__).resolve().parent.parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
 from .agents import Message, QuestionGenerationAgent
 from .validation_workflow import QuestionValidationWorkflow
-
-# Add project root for imports
-project_root = Path(__file__).parent.parent.parent.parent
-sys.path.insert(0, str(project_root))
 
 from src.logging import Logger, get_logger
 from src.services.config import load_config_with_main
@@ -101,8 +101,7 @@ class AgentCoordinator:
         self.output_dir = output_dir
 
         # Load configuration (with main.yaml merge) first
-        project_root = Path(__file__).parent.parent.parent.parent
-        self.config = load_config_with_main("question_config.yaml", project_root)
+        self.config = load_config_with_main("question_config.yaml", _project_root)
 
         # Initialize logger (from config)
         log_dir = self.config.get("paths", {}).get("user_log_dir") or self.config.get(

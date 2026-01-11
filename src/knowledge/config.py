@@ -5,17 +5,19 @@ Knowledge Base Path Configuration Module - Unified management of all paths
 
 import os
 from pathlib import Path
+import sys
+
+_project_root = Path(__file__).resolve().parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
 from src.services.config import get_knowledge_base_dir
-
-# Project root directory (DeepTutor/)
-PROJECT_ROOT = Path(__file__).parent.parent.parent.resolve()
 
 # Knowledge base base directory (respects DEEPTUTOR_DATA_DIR env var)
 KNOWLEDGE_BASES_DIR = get_knowledge_base_dir()
 
 # raganything module path
-RAGANYTHING_PATH = PROJECT_ROOT.parent / "raganything" / "RAG-Anything"
+RAGANYTHING_PATH = _project_root.parent / "raganything" / "RAG-Anything"
 
 
 # Ensure raganything path existence check
@@ -46,11 +48,9 @@ def get_env_config():
 # Add necessary paths to sys.path
 def setup_paths():
     """Set Python module search paths"""
-    import sys
-
     # Add project root directory
-    if str(PROJECT_ROOT) not in sys.path:
-        sys.path.insert(0, str(PROJECT_ROOT))
+    if str(_project_root) not in sys.path:
+        sys.path.insert(0, str(_project_root))
 
     # Add raganything path (if exists)
     if check_raganything() and str(RAGANYTHING_PATH) not in sys.path:
@@ -59,7 +59,6 @@ def setup_paths():
 
 __all__ = [
     "KNOWLEDGE_BASES_DIR",
-    "PROJECT_ROOT",
     "RAGANYTHING_PATH",
     "check_raganything",
     "get_env_config",

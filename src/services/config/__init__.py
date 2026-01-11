@@ -5,7 +5,7 @@ Configuration Service
 Unified configuration loading for all DeepTutor modules.
 
 Usage:
-    from src.services.config import load_config_with_main, PROJECT_ROOT
+    from src.services.config import load_config_with_main
 
     # Load module configuration
     config = load_config_with_main("solve_config.yaml")
@@ -21,8 +21,8 @@ Usage:
 """
 
 from .loader import (
-    PROJECT_ROOT,
     _deep_merge,
+    _get_config_dir,
     get_agent_params,
     get_data_dir,
     get_knowledge_base_dir,
@@ -33,7 +33,6 @@ from .loader import (
 )
 
 __all__ = [
-    "PROJECT_ROOT",
     "load_config_with_main",
     "get_path_from_config",
     "parse_language",
@@ -42,4 +41,5 @@ __all__ = [
     "get_user_dir",
     "get_knowledge_base_dir",
     "_deep_merge",
+    "_get_config_dir",
 ]

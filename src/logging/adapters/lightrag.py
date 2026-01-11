@@ -10,6 +10,11 @@ from contextlib import contextmanager
 import logging
 from pathlib import Path
 from typing import Optional
+import sys
+
+_project_root = Path(__file__).resolve().parent.parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
 
 class LightRAGLogForwarder(logging.Handler):
@@ -59,8 +64,7 @@ def get_lightrag_forwarding_config() -> dict:
         from src.services.config import load_config_with_main
 
         # Use resolve() to get absolute path, ensuring correct project root regardless of working directory
-        project_root = Path(__file__).resolve().parent.parent.parent.parent
-        config = load_config_with_main("solve_config.yaml", project_root)
+        config = load_config_with_main("solve_config.yaml", _project_root)
 
         forwarding_config = config.get("logging", {}).get("lightrag_forwarding", {})
 

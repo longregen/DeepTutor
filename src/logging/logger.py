@@ -21,6 +21,12 @@ from pathlib import Path
 import sys
 from typing import Any, Optional
 
+_project_root = Path(__file__).resolve().parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
+from src.services.config import get_user_dir
+
 
 class LogLevel(Enum):
     """Log levels with associated symbols"""
@@ -147,24 +153,15 @@ class Logger:
         self.logger.handlers.clear()
         self.logger.propagate = False
 
-        # Setup log directory
         # Priority: DEEPTUTOR_DATA_DIR env var > explicit log_dir > default
-        import os
-        base_data_dir = os.environ.get("DEEPTUTOR_DATA_DIR")
-
-        if base_data_dir:
-            # Environment variable takes precedence (for containerized deployments)
-            log_dir = Path(base_data_dir) / "user" / "logs"
-        elif log_dir is None:
-            # Default: DeepTutor/data/user/logs/
-            project_root = Path(__file__).resolve().parent.parent.parent
-            log_dir = project_root / "data" / "user" / "logs"
+        if log_dir is None:
+            # Default: Use get_user_dir() / "logs" which respects DEEPTUTOR_DATA_DIR env var
+            log_dir = get_user_dir() / "logs"
         else:
             log_dir = Path(log_dir)
             # If relative path, resolve it relative to project root
             if not log_dir.is_absolute():
-                project_root = Path(__file__).resolve().parent.parent.parent
-                log_dir = project_root / log_dir
+                log_dir = _project_root / log_dir
 
         log_dir.mkdir(parents=True, exist_ok=True)
         self.log_dir = log_dir
@@ -637,10 +634,8 @@ def get_logger(
             try:
                 from src.services.config import get_path_from_config, load_config_with_main
 
-                # Use resolve() to get absolute path, ensuring correct project root regardless of working directory
-                project_root = Path(__file__).resolve().parent.parent.parent
                 config = load_config_with_main(
-                    "solve_config.yaml", project_root
+                    "solve_config.yaml", _project_root
                 )  # Use any config to get main.yaml
                 log_dir = get_path_from_config(config, "user_log_dir") or config.get("paths", {}).get(
                     "user_log_dir"
@@ -651,7 +646,7 @@ def get_logger(
                     if not log_dir_path.is_absolute():
                         # Remove leading ./ if present
                         log_dir_str = str(log_dir_path).lstrip("./")
-                        log_dir = str(project_root / log_dir_str)
+                        log_dir = str(_project_root / log_dir_str)
                     else:
                         log_dir = str(log_dir_path)
             except Exception:

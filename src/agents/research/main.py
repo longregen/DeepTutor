@@ -13,6 +13,10 @@ import asyncio
 from pathlib import Path
 import sys
 
+_project_root = Path(__file__).resolve().parent.parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
 from dotenv import load_dotenv
 import yaml
 
@@ -32,10 +36,9 @@ def load_config(config_path: str = None, preset: str = None) -> dict:
         Configuration dictionary (merged with main.yaml)
     """
     if config_path is None:
-        project_root = Path(__file__).parent.parent.parent.parent
         from src.services.config import load_config_with_main
 
-        config = load_config_with_main("research_config.yaml", project_root)
+        config = load_config_with_main("research_config.yaml", _project_root)
     else:
         # If custom config path provided, load it directly (for backward compatibility)
         config_file = Path(config_path)

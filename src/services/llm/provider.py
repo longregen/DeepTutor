@@ -6,21 +6,15 @@ Manages LLM provider configurations, persisting them to a JSON file.
 """
 
 import json
-import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.services.config import get_user_dir
 
-def _get_user_data_dir() -> Path:
-    """Get user data directory from env var or default."""
-    base = os.environ.get("DEEPTUTOR_DATA_DIR", "./data")
-    return Path(base) / "user"
-
-
-# Define storage path
-USER_DATA_DIR = _get_user_data_dir()
+# Define storage path (respects DEEPTUTOR_DATA_DIR env var)
+USER_DATA_DIR = get_user_dir()
 PROVIDERS_FILE = USER_DATA_DIR / "llm_providers.json"
 
 

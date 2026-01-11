@@ -87,6 +87,18 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-asyncio
 
+      - name: Check GROQ_API_KEY secret
+        run: |
+          if [ -z "$GROQ_API_KEY" ]; then
+            echo "Error: GROQ_API_KEY secret is not set!"
+            echo "Please add the GROQ_API_KEY secret to your repository settings."
+            echo "Go to: Settings > Secrets and variables > Actions > New repository secret"
+            exit 1
+          fi
+          echo "GROQ_API_KEY is set, proceeding with tests..."
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+
       - name: Run Groq integration tests
         run: |
           pytest tests/integration/test_groq_llm.py -v --tb=short

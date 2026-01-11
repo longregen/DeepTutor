@@ -299,6 +299,7 @@ in {
       "d ${cfg.dataDir}/user 0750 ${cfg.user} ${cfg.group} -"
       "d ${cfg.dataDir}/user/logs 0750 ${cfg.user} ${cfg.group} -"
       "d ${cfg.dataDir}/knowledge_bases 0750 ${cfg.user} ${cfg.group} -"
+      "d ${cfg.dataDir}/config 0750 ${cfg.user} ${cfg.group} -"
     ] ++ optionals cfg.frontend.enable [
       "d ${cfg.dataDir}/frontend 0750 ${cfg.user} ${cfg.group} -"
       "d ${cfg.dataDir}/frontend/.next 0750 ${cfg.user} ${cfg.group} -"
@@ -309,31 +310,45 @@ in {
     # Backend systemd service
     systemd.services.deeptutor-backend = mkIf cfg.backend.enable {
       description = "DeepTutor Backend API";
-      after = ["network.target"];
+      after = ["network.target" "systemd-tmpfiles-setup.service"];
+      requires = ["systemd-tmpfiles-setup.service"];
       wantedBy = ["multi-user.target"];
 
       environment =
         {
           PYTHONPATH = "${cfg.sourceDir}";
           DEEPTUTOR_DATA_DIR = cfg.dataDir;
+          DEEPTUTOR_CONFIG_DIR = "${cfg.dataDir}/config";
           BACKEND_PORT = toString cfg.backend.port;
           BACKEND_HOST = cfg.backend.host;
         }
         // cfg.extraEnv;
+
+      # Copy config files on first start if they don't exist
+      script = ''
+        # Ensure config directory exists
+        mkdir -p "${cfg.dataDir}/config"
+
+        # Copy config files to writable location on first start
+        if [ ! -f "${cfg.dataDir}/config/main.yaml" ]; then
+          echo "Initializing config files in ${cfg.dataDir}/config/"
+          cp ${cfg.sourceDir}/config/*.yaml ${cfg.dataDir}/config/
+          chmod 640 ${cfg.dataDir}/config/*.yaml
+        fi
+
+        exec ${pythonEnv}/bin/uvicorn src.api.main:app \
+          --host ${cfg.backend.host} \
+          --port ${toString cfg.backend.port} \
+          --workers ${toString cfg.backend.workers} \
+          --proxy-headers \
+          --forwarded-allow-ips="*"
+      '';
 
       serviceConfig = {
         Type = "simple";
         User = cfg.user;
         Group = cfg.group;
         WorkingDirectory = cfg.sourceDir;
-        ExecStart = ''
-          ${pythonEnv}/bin/uvicorn src.api.main:app \
-            --host ${cfg.backend.host} \
-            --port ${toString cfg.backend.port} \
-            --workers ${toString cfg.backend.workers} \
-            --proxy-headers \
-            --forwarded-allow-ips="*"
-        '';
         Restart = "on-failure";
         RestartSec = 5;
 
@@ -357,7 +372,8 @@ in {
     # Frontend systemd service
     systemd.services.deeptutor-frontend = mkIf cfg.frontend.enable {
       description = "DeepTutor Frontend";
-      after = ["network.target" "deeptutor-backend.service"];
+      after = ["network.target" "systemd-tmpfiles-setup.service" "deeptutor-backend.service"];
+      requires = ["systemd-tmpfiles-setup.service"];
       wants = ["deeptutor-backend.service"];
       wantedBy = ["multi-user.target"];
 
@@ -371,6 +387,9 @@ in {
         // cfg.extraEnv;
 
       script = ''
+        # Ensure frontend directory exists
+        mkdir -p "${cfg.dataDir}/frontend"
+
         # Copy package to writable directory (only if changed)
         if [ ! -f "${cfg.dataDir}/frontend/.package-hash" ] || \
            [ "$(cat ${cfg.dataDir}/frontend/.package-hash 2>/dev/null)" != "${frontendPackage}" ]; then

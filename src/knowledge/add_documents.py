@@ -8,25 +8,29 @@ rather than recreating the entire knowledge base.
 Only newly added documents will be processed, without affecting the existing knowledge graph.
 """
 
+from pathlib import Path
+import sys
+
+_project_root = Path(__file__).resolve().parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
 import argparse
 import asyncio
 from datetime import datetime
 import json
 import os
-from pathlib import Path
 import shutil
-import sys
-
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root))
-# Add raganything module path
-raganything_path = project_root.parent / "raganything" / "RAG-Anything"
-if raganything_path.exists():
-    sys.path.insert(0, str(raganything_path))
 
 from dotenv import load_dotenv
 from lightrag.llm.openai import openai_complete_if_cache
 from lightrag.utils import EmbeddingFunc
+
+# Add raganything module path
+raganything_path = _project_root.parent / "raganything" / "RAG-Anything"
+if raganything_path.exists():
+    sys.path.insert(0, str(raganything_path))
+
 from raganything import RAGAnything, RAGAnythingConfig
 
 from src.services.embedding import get_embedding_client, get_embedding_config
@@ -571,8 +575,8 @@ Usage examples:
     parser.add_argument("--docs-dir", help="Directory containing documents to add")
     parser.add_argument(
         "--base-dir",
-        default="./knowledge_bases",
-        help="Knowledge base base directory (default: ./knowledge_bases)",
+        default=str(get_knowledge_base_dir()),
+        help="Base directory for knowledge bases",
     )
     parser.add_argument("--api-key", default=os.getenv("LLM_API_KEY"), help="OpenAI API key")
     parser.add_argument("--base-url", default=os.getenv("LLM_HOST"), help="API base URL")

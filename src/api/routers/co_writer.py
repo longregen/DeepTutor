@@ -1,18 +1,16 @@
+import json
+import traceback
 from pathlib import Path
 import sys
-import traceback
 from typing import Literal
+
+_project_root = Path(__file__).resolve().parent.parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
-
-# Ensure co_writer module can be imported
-project_root = Path(__file__).parent.parent.parent.parent
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
-
-import json
 
 from src.agents.co_writer.edit_agent import (
     TOOL_CALLS_DIR,
@@ -28,8 +26,7 @@ from src.services.tts import get_tts_config
 router = APIRouter()
 
 # Initialize logger with config
-project_root = Path(__file__).parent.parent.parent.parent
-config = load_config_with_main("solve_config.yaml", project_root)  # Use any config to get main.yaml
+config = load_config_with_main("solve_config.yaml", _project_root)  # Use any config to get main.yaml
 log_dir = config.get("paths", {}).get("user_log_dir") or config.get("logging", {}).get("log_dir")
 logger = get_logger("CoWriter", level="INFO", log_dir=log_dir)
 

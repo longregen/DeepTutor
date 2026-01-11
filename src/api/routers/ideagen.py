@@ -7,13 +7,12 @@ from datetime import datetime
 from pathlib import Path
 import sys
 
+_project_root = Path(__file__).resolve().parent.parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
-
-# Ensure project modules can be imported
-project_root = Path(__file__).parent.parent.parent.parent
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
 
 from src.agents.base_agent import BaseAgent
 from src.agents.ideagen.idea_generation_workflow import IdeaGenerationWorkflow
@@ -27,8 +26,7 @@ from src.services.llm import get_llm_config
 router = APIRouter()
 
 # Initialize logger with config
-project_root = Path(__file__).parent.parent.parent.parent
-config = load_config_with_main("solve_config.yaml", project_root)  # Use any config to get main.yaml
+config = load_config_with_main("solve_config.yaml", _project_root)  # Use any config to get main.yaml
 log_dir = config.get("paths", {}).get("user_log_dir") or config.get("logging", {}).get("log_dir")
 logger = get_logger("IdeaGen", level="INFO", log_dir=log_dir)
 

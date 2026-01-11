@@ -8,6 +8,11 @@ Configuration settings for the logging system.
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
+import sys
+
+_project_root = Path(__file__).resolve().parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
 
 @dataclass
@@ -56,8 +61,7 @@ def load_logging_config() -> LoggingConfig:
     try:
         from src.services.config import get_path_from_config, load_config_with_main
 
-        project_root = Path(__file__).resolve().parent.parent.parent
-        config = load_config_with_main("solve_config.yaml", project_root)
+        config = load_config_with_main("solve_config.yaml", _project_root)
 
         logging_config = config.get("logging", {})
 

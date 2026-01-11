@@ -3,17 +3,10 @@ Notebook API Router
 Provides notebook creation, querying, updating, deletion, and record management functions
 """
 
-from pathlib import Path
-import sys
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-
-# Ensure module can be imported
-project_root = Path(__file__).parent.parent.parent.parent
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
 
 from src.api.utils.notebook_manager import notebook_manager
 

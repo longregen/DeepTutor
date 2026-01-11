@@ -9,13 +9,17 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 from typing import Optional
+import sys
+
+_project_root = Path(__file__).resolve().parent.parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
 from dotenv import load_dotenv
 
 # Load environment variables
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-load_dotenv(PROJECT_ROOT / "DeepTutor.env", override=False)
-load_dotenv(PROJECT_ROOT / ".env", override=False)
+load_dotenv(_project_root / "DeepTutor.env", override=False)
+load_dotenv(_project_root / ".env", override=False)
 
 
 @dataclass

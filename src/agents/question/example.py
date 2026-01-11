@@ -22,7 +22,7 @@ for logger_name in ["lightrag", "raganything", "nano-vectordb", "openai", "httpx
     logger.setLevel(logging.WARNING)
     logger.propagate = False
 
-project_root = Path(__file__).resolve().parent.parent.parent.parent.parent.parent.parent
+project_root = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 load_dotenv(dotenv_path=project_root / ".env", override=False)

@@ -8,6 +8,8 @@ Vector-based indexer using dense embeddings.
 from pathlib import Path
 from typing import List, Optional
 
+from src.services.config import get_knowledge_base_dir
+
 from ...types import Document
 from ..base import BaseComponent
 
@@ -29,11 +31,7 @@ class VectorIndexer(BaseComponent):
             kb_base_dir: Base directory for knowledge bases
         """
         super().__init__()
-        self.kb_base_dir = kb_base_dir or str(
-            Path(__file__).resolve().parent.parent.parent.parent.parent.parent
-            / "data"
-            / "knowledge_bases"
-        )
+        self.kb_base_dir = kb_base_dir or str(get_knowledge_base_dir())
 
     async def process(self, kb_name: str, documents: List[Document], **kwargs) -> bool:
         """

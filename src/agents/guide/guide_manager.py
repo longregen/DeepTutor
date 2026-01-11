@@ -8,9 +8,14 @@ Manages the complete lifecycle of learning sessions
 from dataclasses import asdict, dataclass, field
 import json
 from pathlib import Path
+import sys
 import time
 from typing import Any
 import uuid
+
+_project_root = Path(__file__).resolve().parent.parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
 import yaml
 
@@ -71,8 +76,7 @@ class GuideManager:
         self.binding = binding
 
         if config_path is None:
-            project_root = Path(__file__).parent.parent.parent.parent
-            config = load_config_with_main("guide_config.yaml", project_root)
+            config = load_config_with_main("guide_config.yaml", _project_root)
         else:
             config_path = Path(config_path)
             if config_path.exists():

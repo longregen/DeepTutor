@@ -11,21 +11,21 @@ import re
 import sys
 from typing import Any
 
+_project_root = Path(__file__).resolve().parent.parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from src.agents.solve import MainSolver
 from src.api.utils.history import ActivityType, history_manager
 from src.api.utils.log_interceptor import LogInterceptor
 from src.api.utils.task_id_manager import TaskIDManager
-
-_project_root = Path(__file__).parent.parent.parent.parent
-sys.path.insert(0, str(_project_root))
 from src.logging import get_logger
 from src.services.config import get_user_dir, load_config_with_main
 
 # Initialize logger with config
-project_root = Path(__file__).parent.parent.parent.parent
-config = load_config_with_main("solve_config.yaml", project_root)
+config = load_config_with_main("solve_config.yaml", _project_root)
 log_dir = config.get("paths", {}).get("user_log_dir") or config.get("logging", {}).get("log_dir")
 logger = get_logger("SolveAPI", level="INFO", log_dir=log_dir)
 

@@ -16,11 +16,12 @@ import sys
 import traceback
 from typing import Any
 
-import yaml
+# Setup sys.path for imports from src package
+_project_root = Path(__file__).resolve().parent.parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
-# Add parent directory to path
-project_root = Path(__file__).parent.parent.parent.parent
-sys.path.insert(0, str(project_root))
+import yaml
 
 from src.services.config import get_user_dir, load_config_with_main, parse_language
 from src.services.llm import get_llm_config
@@ -64,9 +65,8 @@ class MainSolver:
         """
         # Load config from config directory (main.yaml unified config)
         if config_path is None:
-            project_root = Path(__file__).parent.parent.parent.parent
             # Load main.yaml (solve_config.yaml is optional and will be merged if exists)
-            full_config = load_config_with_main("main.yaml", project_root)
+            full_config = load_config_with_main("main.yaml", _project_root)
 
             # Extract solve-specific config and build validator-compatible structure
             solve_config = full_config.get("solve", {})

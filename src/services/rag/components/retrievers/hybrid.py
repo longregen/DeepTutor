@@ -9,6 +9,12 @@ from pathlib import Path
 import sys
 from typing import Any, Dict, Optional
 
+_project_root = Path(__file__).resolve().parent.parent.parent.parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
+from src.services.config import get_knowledge_base_dir
+
 from ..base import BaseComponent
 
 
@@ -30,11 +36,7 @@ class HybridRetriever(BaseComponent):
             kb_base_dir: Base directory for knowledge bases
         """
         super().__init__()
-        self.kb_base_dir = kb_base_dir or str(
-            Path(__file__).resolve().parent.parent.parent.parent.parent.parent
-            / "data"
-            / "knowledge_bases"
-        )
+        self.kb_base_dir = kb_base_dir or str(get_knowledge_base_dir())
 
     def _get_rag_instance(self, kb_name: str):
         """Get or create a RAGAnything instance."""
@@ -44,8 +46,7 @@ class HybridRetriever(BaseComponent):
             return self._instances[working_dir]
 
         # Add RAG-Anything path
-        project_root = Path(__file__).resolve().parent.parent.parent.parent.parent.parent
-        raganything_path = project_root.parent / "raganything" / "RAG-Anything"
+        raganything_path = _project_root.parent / "raganything" / "RAG-Anything"
         if raganything_path.exists() and str(raganything_path) not in sys.path:
             sys.path.insert(0, str(raganything_path))
 

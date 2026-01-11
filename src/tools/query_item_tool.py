@@ -4,13 +4,14 @@
 Query Numbered Item Tool - Query definitions, theorems, formulas, figures, etc.
 """
 
-import json
 from pathlib import Path
 import sys
 
-# Add parent directory to path (insert at front to prioritize project modules)
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root))
+_project_root = Path(__file__).resolve().parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
+import json
 
 
 def query_numbered_item(
@@ -62,12 +63,11 @@ def query_numbered_item(
         except Exception:
             max_results = 5  # Default value
 
-    # If path not specified, use absolute path relative to this file
+    # If path not specified, use centralized config
     if kb_base_dir is None:
-        # __file__ = DeepTutor/tools/query_item_tool.py
-        # .parent = DeepTutor/tools
-        # .parent = DeepTutor
-        kb_base_dir = Path(__file__).parent.parent.parent / "data/knowledge_bases"
+        from src.services.config import get_knowledge_base_dir
+
+        kb_base_dir = get_knowledge_base_dir()
     else:
         kb_base_dir = Path(kb_base_dir)
 

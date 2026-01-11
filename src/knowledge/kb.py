@@ -7,10 +7,9 @@ Can be run directly: python knowledge_init/kb.py [command]
 from pathlib import Path
 import sys
 
-# Ensure project root is in sys.path
-project_root = Path(__file__).parent.parent.parent
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
+_project_root = Path(__file__).resolve().parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
 # Import main function from startup script
 from src.knowledge.manager import KnowledgeBaseManager as KnowledgeBase

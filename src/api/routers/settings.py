@@ -11,7 +11,7 @@ from typing import Any, Dict, Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from src.services.config import get_user_dir
+from src.services.config import get_data_dir, get_knowledge_base_dir, get_user_dir
 from src.services.embedding import get_embedding_config
 from src.services.llm import get_llm_config
 from src.services.tts import get_tts_config
@@ -384,15 +384,15 @@ async def get_config_info():
     config = config_manager.load_config()
 
     paths = config.get("paths", {})
-    user_data_dir = paths.get("user_data_dir", "./data/user")
+    user_data_dir = paths.get("user_data_dir", str(get_user_dir()))
     kb_base_dir = (
-        config.get("tools", {}).get("rag_tool", {}).get("kb_base_dir", "./data/knowledge_bases")
+        config.get("tools", {}).get("rag_tool", {}).get("kb_base_dir", str(get_knowledge_base_dir()))
     )
     default_kb = config.get("tools", {}).get("rag_tool", {}).get("default_kb", "ai_textbook")
     workspace = (
         config.get("tools", {})
         .get("run_code", {})
-        .get("workspace", "./data/user/run_code_workspace")
+        .get("workspace", str(get_user_dir() / "run_code_workspace"))
     )
 
     return {
@@ -475,12 +475,32 @@ async def get_env_var(key: str):
     }
 
 
+def _get_env_file_path() -> Path:
+    """Get the .env file path, preferring data dir for writable deployments."""
+    # Check data dir first (writable in containerized deployments)
+    data_env = get_data_dir() / ".env"
+    if data_env.exists():
+        return data_env
+
+    # Fall back to project root (traditional location)
+    project_root = Path(__file__).resolve().parent.parent.parent.parent
+    project_env = project_root / ".env"
+    if project_env.exists():
+        return project_env
+
+    # Default to data dir for new files (ensures writability)
+    if os.environ.get("DEEPTUTOR_DATA_DIR"):
+        return data_env
+    return project_env
+
+
 def _update_dot_env(updates: Dict[str, str], removals: list[str]):
     """Update variables in .env file preserving comments and structure."""
-    env_path = Path(__file__).parent.parent.parent.parent / ".env"
+    env_path = _get_env_file_path()
 
     if not env_path.exists():
         # Create new if doesn't exist
+        env_path.parent.mkdir(parents=True, exist_ok=True)
         with open(env_path, "w", encoding="utf-8") as f:
             for k, v in updates.items():
                 if " " in v or "#" in v:

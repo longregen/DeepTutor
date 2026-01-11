@@ -11,6 +11,12 @@ import shutil
 import subprocess
 import sys
 
+_project_root = Path(__file__).resolve().parent.parent.parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
+from src.services.config import get_user_dir
+
 
 def check_mineru_installed():
     """Check if MinerU is installed"""
@@ -67,9 +73,8 @@ def parse_pdf_with_mineru(pdf_path: str, output_base_dir: str = None):
         print(f"✗ Error: File is not PDF format: {pdf_path}")
         return False
 
-    script_dir = Path(__file__).parent.parent.parent.parent.parent
     if output_base_dir is None:
-        output_base_dir = script_dir / "reference_papers"
+        output_base_dir = get_user_dir() / "reference_papers"
     else:
         output_base_dir = Path(output_base_dir)
 

@@ -8,10 +8,9 @@ Contains logging, performance monitoring, config validation, parsers, etc.
 from pathlib import Path
 import sys
 
-# Add project root to path for imports
-project_root = Path(__file__).parent.parent.parent.parent
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
+_project_root = Path(__file__).resolve().parent.parent.parent.parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
 from src.logging import Logger, LogLevel, get_logger, reset_logger
 

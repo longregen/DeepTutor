@@ -349,7 +349,9 @@ def main():
 
     parser = argparse.ArgumentParser(description="Knowledge Base Manager")
     parser.add_argument(
-        "--base-dir", default="./knowledge_bases", help="Base directory for knowledge bases"
+        "--base-dir",
+        default=str(get_knowledge_base_dir()),
+        help="Base directory for knowledge bases",
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Commands")
