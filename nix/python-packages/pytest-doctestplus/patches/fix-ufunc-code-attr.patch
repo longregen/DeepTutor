@@ -1,0 +1,21 @@
+--- a/pytest_doctestplus/plugin.py
++++ b/pytest_doctestplus/plugin.py
+@@ -873,9 +873,15 @@ class DocTestFinderPlus(doctest.DocTestFinder):
+         if self._doctest_ufunc:
+             for ufunc_name, ufunc_method in obj.__dict__.items():
+                 if _is_numpy_ufunc(ufunc_method):
+-                    tests += doctest.DocTestFinder.find(
+-                        self, ufunc_method, f'{name}.{ufunc_name}',
+-                        module=obj, globs=globs, extraglobs=extraglobs)
++                    try:
++                        tests += doctest.DocTestFinder.find(
++                            self, ufunc_method, f'{name}.{ufunc_name}',
++                            module=obj, globs=globs, extraglobs=extraglobs)
++                    except AttributeError:
++                        # numpy ufuncs don't have __code__ attribute which
++                        # Python's inspect.unwrap() tries to access when
++                        # finding line numbers for doctest collection
++                        pass
+
+         if hasattr(obj, '__doctest_skip__') or hasattr(obj, '__doctest_requires__'):
+

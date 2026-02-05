@@ -1,0 +1,24 @@
+diff --git a/src/v2.h b/src/v2.h
+--- a/src/v2.h
++++ b/src/v2.h
+@@ -10,15 +10,17 @@
+ #include <string>
+ #include <regex>
+ #include <fstream>
+-#include <iostream>
++#include <unordered_set>
+
+ #ifdef _WIN32
+ #include <share.h> // to define _SH_DENYNO for loguru
+ //#define _SH_DENYNO
+ #endif
+
+-// specific libraries
+-#include <cxxopts.hpp>
++// Note: cxxopts.hpp removed from v2.h - it's not used in the library code,
++// only in CLI apps (app/parse_v*.cpp). Including it here causes SFINAE
++// template conflicts with nlohmann_json due to iterator_traits interference.
++// CLI apps include cxxopts.hpp directly.
+
+ #define LOGURU_WITH_STREAMS 1
+ #include <loguru.hpp>
